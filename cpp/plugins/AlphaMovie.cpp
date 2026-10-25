@@ -8,6 +8,9 @@
 #include <list>
 #include <mutex>
 #include <thread>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 #include "PluginStub.h"
 #include "ncbind.hpp"
 #include "LayerIntf.h"
@@ -89,7 +92,11 @@ class AlphaMovieBitReader_guess {
     tjs_uint32 Word;
 
     static tjs_uint32 Swap_guess(tjs_uint32 value) {
+#if defined(_MSC_VER)
+        return _byteswap_ulong(value);
+#else
         return __builtin_bswap32(value);
+#endif
     }
 
 public:
