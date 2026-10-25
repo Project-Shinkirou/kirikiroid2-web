@@ -9,10 +9,13 @@ Manager presents CPU leases and supplies optional typed window/modal services.
 There is no child process, socket protocol, Host PCM requirement, library reload,
 or second application event loop. Audio uses the original OpenAL playback device.
 
+The Rust adapter uses edition 2024 and requires Rust 1.98 or newer.
+
 ## Source provenance
 
-- Upstream repository: `fenghengzhi/kirikiroid2-web`, base
-  `7105b50822097d11b7b1f5894bf541509fd51350`.
+- Upstream repository: `fenghengzhi/kirikiroid2-web`, `web` branch
+  `2028cbccaa91498bd36f270d349ae711d0e8fed3`, merged over the retained
+  native repair and ShinkiEMU integration history.
 - Hosted fork: `https://github.com/Project-Shinkirou/kirikiroid2-web`, branch `shinki`.
   The adaptation contains this `shinki/` directory (C++ adapter under `native/`,
   Rust query binding and lifecycle tests here),
