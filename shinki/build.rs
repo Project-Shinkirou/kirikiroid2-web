@@ -62,6 +62,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         ("shinki/README.md", "adapter-README.md"),
         ("cpp/plugins/layerExImage/LICENSE.TXT", "layerExImage-LICENSE.TXT"),
         ("ui/cocos-studio/DroidSansFallback.LICENSE.txt", "DroidSansFallback.LICENSE.txt"),
+        ("shinki/licenses/libbpg-MIT.txt", "libbpg-MIT.txt"),
+        ("shinki/licenses/minizip-zlib.txt", "minizip-zlib.txt"),
+        ("shinki/licenses/UnRAR.txt", "UnRAR.txt"),
     ] {
         manifest.licenses.push(BuildAsset {
             source: root.join(source),
