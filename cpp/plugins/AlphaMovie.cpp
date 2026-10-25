@@ -83,7 +83,22 @@ const tjs_uint8 DCValues_guess[12] = {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
 };
 
-extern "C" const int jpeg_natural_order[];
+// JPEG's zigzag-to-natural ordering, including the 16 saturation entries used
+// by its Huffman decoder for runs extending past a block. Keep this local:
+// jpeg_natural_order is an internal libjpeg symbol, not a portable DLL API.
+// Table from IJG jutils.c, Copyright (C) 1991-1996 Thomas G. Lane.
+const int AlphaMovieNaturalOrder[64 + 16] = {
+     0,  1,  8, 16,  9,  2,  3, 10,
+    17, 24, 32, 25, 18, 11,  4,  5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13,  6,  7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63,
+    63, 63, 63, 63, 63, 63, 63, 63,
+    63, 63, 63, 63, 63, 63, 63, 63,
+};
 
 class AlphaMovieBitReader_guess {
     const tjs_uint32 *Current;
@@ -312,7 +327,7 @@ public:
             }
             if(value != 0) {
                 index += run;
-                coefficients[jpeg_natural_order[index]] = value;
+                coefficients[AlphaMovieNaturalOrder[index]] = value;
             } else {
                 if(run != 15)
                     return index;

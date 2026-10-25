@@ -24,7 +24,9 @@ The Rust adapter uses edition 2024 and requires Rust 1.98 or newer.
   owner initialization, and FFmpeg 3.3.9 dynamic linking (libbpg uses the
   public HEVC decoder lookup; the Windows FFmpeg port is no longer static-only).
   AlphaMovie uses the equivalent MSVC byte-swap intrinsic on Windows; other
-  compilers retain upstream's builtin.
+  compilers retain upstream's builtin. Its JPEG coefficient-order table is
+  local, preserving the decoder's saturation tail without importing libjpeg's
+  private data symbol from a DLL.
 - `layerExImage`: `23a9214f9b6e9bc3267b964707efa269c041b919`, compiled unchanged.
 - `native/include/shinki_emu.h` is the generated shared header of
   `shinki-emu-abi` at ShinkiEMU `cb8d9dd22d7d0ab129085b324c94d6dc81fa19e3`
