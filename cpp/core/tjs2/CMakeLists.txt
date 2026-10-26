@@ -25,6 +25,10 @@ set(BISON_FILES
     ${CMAKE_CURRENT_LIST_DIR}/bison/tjspp.y
 )
 set(PARSE_TAB_CPP_FILES)
+# win_bison instances share a fixed temporary input (extern_stdin); running two at
+# once fails with "end of file in string". Chain each generation after the previous
+# one so every generator runs them one at a time.
+set(PREVIOUS_BISON_OUTPUT)
 foreach(BISON_FILE ${BISON_FILES})
     get_filename_component(FILE_NAME ${BISON_FILE} NAME_WE)
 
@@ -39,13 +43,14 @@ foreach(BISON_FILE ${BISON_FILES})
         OUTPUT
             ${GEN_CODE_BINARY_DIR}/${FILE_NAME}.tab.cpp
             ${GEN_CODE_BINARY_DIR}/${FILE_NAME}.tab.hpp
-        DEPENDS ${BISON_FILE}
+        DEPENDS ${BISON_FILE} ${PREVIOUS_BISON_OUTPUT}
         COMMAND ${BISON_EXECUTABLE} ${BISON_FILE}
         WORKING_DIRECTORY ${GEN_CODE_BINARY_DIR}
         COMMENT "Generate Bison File From ${BISON_FILE}"
     )
 
     list(APPEND PARSE_TAB_CPP_FILES ${GEN_CODE_BINARY_DIR}/${FILE_NAME}.tab.cpp)
+    set(PREVIOUS_BISON_OUTPUT ${GEN_CODE_BINARY_DIR}/${FILE_NAME}.tab.cpp)
 endforeach()
 
 add_custom_target(GENERATE_CPP_FILES DEPENDS ${PARSE_TAB_CPP_FILES})
