@@ -1,7 +1,9 @@
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <winsock2.h>
 #include <windows.h>
+#endif
 #include "NativeSession.h"
 #include "HostModal.h"
 #include "NativeLifecycle.h"
@@ -59,15 +61,10 @@ static std::string path_text(const std::uint8_t *data, std::uint64_t bytes) {
     if(!data || !bytes || bytes > 4096 || std::memchr(data, 0, bytes))
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_BOUND");
     const auto text = reinterpret_cast<const char *>(data);
-    if(!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text, static_cast<int>(bytes), nullptr, 0))
-        throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_UTF8");
-    std::string result(text, bytes);
-    const auto path = std::filesystem::u8path(result);
+    const auto path = std::filesystem::u8path(std::string(text, bytes));
     if(!path.is_absolute() || !std::filesystem::is_directory(path))
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_DIRECTORY");
-    std::replace(result.begin(), result.end(), '\\', '/');
-    if(result.back() != '/') result += '/';
-    return result;
+    return path.u8string() + (path.u8string().back() == '/' ? "" : "/");
 }
 NativeSession::NativeSession(const ShinkiKrkrBootOptions &options)
     : callbacks_(options.callbacks),
@@ -163,8 +160,12 @@ void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
     auto director = cocos2d::Director::getInstance();
     director->setDisplayStats(false);
     auto view = director->getOpenGLView();
+#if defined(_WIN32)
     if(!view || !view->getWin32Window()) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_WINDOW");
     ShowWindow(view->getWin32Window(), SW_HIDE);
+#else
+    if(!view) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_WINDOW");
+#endif
     // The context is created invisible; its present endpoint only flushes GL.
     glfwSwapInterval(0);
     if(options.window.focused) ::Application->OnActivate();

@@ -1,6 +1,14 @@
+#if !defined(_WIN32)
+#include <dlfcn.h>
+#include <unistd.h>
+#endif
+#include <codecvt>
+#include <locale>
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#endif
 #include "shinki_emu.h"
 #include "NativeSession.h"
 #include "NativeLifecycle.h"
@@ -62,8 +70,12 @@ std::string text(ShinkiEmuBytes value, size_t maximum = 4096) {
     require(value.len <= maximum && (!value.len || value.data), "KRKR_TEXT_BOUND");
     if(!value.len) return {};
     require(!std::memchr(value.data, 0, value.len), "KRKR_TEXT_NUL");
-    require(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, reinterpret_cast<const char *>(value.data), static_cast<int>(value.len), nullptr, 0) != 0, "KRKR_TEXT_UTF8");
-    return {reinterpret_cast<const char *>(value.data), value.len};
+    std::string result(reinterpret_cast<const char *>(value.data), value.len);
+    try {
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        converter.from_bytes(result);
+    } catch(...) { throw Failure(ShinkiEmuINVALID_ARGUMENT, "KRKR_TEXT_UTF8"); }
+    return result;
 }
 ShinkiEmuSurfaceInfo surface(ShinkiKrkrFrameInfo f) {
     // TVPWindowLayer::UpdateDrawBuffer presents this same final texture with
@@ -389,13 +401,26 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
             auto path = std::filesystem::absolute(std::filesystem::u8path(text(r->game_path)));
             if(!std::filesystem::is_directory(path)) path = path.parent_path();
             s->game = path.u8string();
+#if defined(_WIN32)
             HMODULE module = nullptr; wchar_t filename[32768];
             require(GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                 reinterpret_cast<LPCWSTR>(&open), &module), "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
             const auto n = GetModuleFileNameW(module, filename, static_cast<DWORD>(std::size(filename)));
             require(n && n < std::size(filename), "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
-            s->resources = (std::filesystem::path(filename).parent_path() / "Resources").u8string();
-            const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(++temporary_id));
+            const auto module_path = std::filesystem::path(filename);
+#else
+            Dl_info info{};
+            require(dladdr(reinterpret_cast<void *>(&open), &info) && info.dli_fname, "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
+            const auto module_path = std::filesystem::u8path(info.dli_fname);
+#endif
+            s->resources = (module_path.parent_path() / "Resources").u8string();
+            const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(
+#if defined(_WIN32)
+                GetCurrentProcessId()
+#else
+                getpid()
+#endif
+                ) + "-" + std::to_string(++temporary_id));
             require(std::filesystem::create_directory(temporary), "KRKR_WRITABLE_CREATE", ShinkiEmuCORE_ERROR);
             s->writable = temporary.u8string();
             s->worker = std::thread([p = s.get()] { p->run(); });
