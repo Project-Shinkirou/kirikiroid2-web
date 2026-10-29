@@ -106,6 +106,11 @@ Use the retained original vcpkg manifest/overlays: FFmpeg 3.3.9 with Yasm,
 Cocos 3.17.2, SevenZip 26.04, UnRAR and all original plugins. Do not substitute
 SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 
+The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
+and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
+compatibility API is retained; it does not rely on NDK r30 carrying the
+removed `sources/android/cpufeatures` headers.
+
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
 and the core imports them. libbpg selects the HEVC decoder through the public
