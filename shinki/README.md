@@ -106,6 +106,11 @@ Use the retained original vcpkg manifest/overlays: FFmpeg 3.3.9 with Yasm,
 Cocos 3.17.2, SevenZip 26.04, UnRAR and all original plugins. Do not substitute
 SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 
+The cocos2dx overlay accepts iOS triplets and maps CMake's `iOS` system name
+to the retained upstream UIKit/OpenGLES platform sources, rather than the
+macOS desktop implementation. Device and both simulator triples use their
+target SDK through the ShinkiEMU Apple toolchain.
+
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
 and the core imports them. libbpg selects the HEVC decoder through the public
