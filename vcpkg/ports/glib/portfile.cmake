@@ -26,6 +26,7 @@ vcpkg_extract_source_archive(SOURCE_PATH
     PATCHES
         use-libiconv-on-windows.patch
         libintl.patch
+        android-windows-relative-gdb-path.patch
         ${EMSCRIPTEN_PATCHES}
 )
 
