@@ -59,22 +59,18 @@ if (VCPKG_TARGET_ANDROID)
     #
     # The variable must be stored in the cache in order to successfully the two toolchains. 
     #
-    if (ANDROID_ABI MATCHES "arm64-v8a")
-        set(VCPKG_TARGET_TRIPLET "arm64-android" CACHE STRING "" FORCE)
-    elseif(ANDROID_ABI MATCHES "armeabi-v7a")
-        set(VCPKG_TARGET_TRIPLET "arm-android" CACHE STRING "" FORCE)
-    elseif(ANDROID_ABI MATCHES "x86_64")
-        set(VCPKG_TARGET_TRIPLET "x64-android" CACHE STRING "" FORCE)
-    elseif(ANDROID_ABI MATCHES "x86")
-        set(VCPKG_TARGET_TRIPLET "x86-android" CACHE STRING "" FORCE)
-    else()
-        message(FATAL_ERROR "
-        Please specify ANDROID_ABI
-        For example
-        cmake ... -DANDROID_ABI=armeabi-v7a
-
-        Possible ABIs are: arm64-v8a, armeabi-v7a, x64-android, x86-android
-        ")
+    if (NOT DEFINED VCPKG_TARGET_TRIPLET OR VCPKG_TARGET_TRIPLET STREQUAL "")
+        if (ANDROID_ABI MATCHES "arm64-v8a")
+            set(VCPKG_TARGET_TRIPLET "arm64-android" CACHE STRING "" FORCE)
+        elseif(ANDROID_ABI MATCHES "armeabi-v7a")
+            set(VCPKG_TARGET_TRIPLET "arm-android" CACHE STRING "" FORCE)
+        elseif(ANDROID_ABI MATCHES "x86_64")
+            set(VCPKG_TARGET_TRIPLET "x64-android" CACHE STRING "" FORCE)
+        elseif(ANDROID_ABI MATCHES "x86")
+            set(VCPKG_TARGET_TRIPLET "x86-android" CACHE STRING "" FORCE)
+        else()
+            message(FATAL_ERROR "Please specify ANDROID_ABI; supported ABIs: arm64-v8a, armeabi-v7a, x86_64, x86")
+        endif()
     endif()
     message("vcpkg_android.cmake: VCPKG_TARGET_TRIPLET was set to ${VCPKG_TARGET_TRIPLET}")
 
