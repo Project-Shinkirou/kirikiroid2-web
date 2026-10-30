@@ -1,18 +1,17 @@
 diff --git a/glib/meson.build b/glib/meson.build
-index 0000000..0000000 100644
 --- a/glib/meson.build
 +++ b/glib/meson.build
-@@ -559,7 +559,11 @@
+@@ -562,5 +562,8 @@
 -# XXX: We add a leading './' because glib_libdir is an absolute path and we
 -# need it to be a relative path so that join_paths appends it to the end.
 -gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' + glib_libdir)
-+# Windows-hosted Android cross builds receive an absolute Windows prefix in
-+# glib_libdir. Meson then creates an invalid auto-load/./E: path. vcpkg's
-+# helper supplies a relative libdir for the Android package.
+-
+-configure_file(
 +if build_machine.system() == 'windows' and host_system == 'android'
 +  gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', get_option('libdir'))
 +else
-+  # Keep the upstream relative-path workaround for native builds.
++  # Preserve upstream's relative absolute-path workaround for native builds.
 +  gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' + glib_libdir)
 +endif
-*** End Patch
++
++configure_file(
