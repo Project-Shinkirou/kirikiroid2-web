@@ -1,5 +1,6 @@
 use shinki_emu_build::{
-    configure_cmake, write_core_build_manifest, BuildAsset, CoreBuildManifest,
+    configure_cmake, link_apple_static_core, native_vcpkg_installation,
+    write_core_build_manifest, BuildAsset, CoreBuildManifest,
 };
 use std::{env, fs, path::PathBuf};
 
@@ -26,9 +27,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         "VCPKG_ROOT is missing; run cargo xtask deps for kirikiroid2-web",
     )?);
     let toolchain = vcpkg.join("scripts/buildsystems/vcpkg.cmake");
-    let installed = PathBuf::from(env::var_os("SHINKI_EMU_VCPKG_INSTALLED").ok_or(
-        "SHINKI_EMU_VCPKG_INSTALLED is missing; run cargo xtask deps for kirikiroid2-web",
-    )?);
+    let installed = native_vcpkg_installation("kirikiroid2-web")?;
     let triplet = env::var("SHINKI_EMU_VCPKG_TRIPLET")?;
     if !toolchain.is_file() || !installed.join(&triplet).join("lib").is_dir() {
         return Err("KiriKiri requires the prepared vcpkg installation; run cargo xtask deps".into());
@@ -45,6 +44,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         ("BUILD_TOOLS".into(), "OFF".into()),
         ("KRKR2_USE_STUB_SPDLOG".into(), "OFF".into()),
         ("CMAKE_TOOLCHAIN_FILE".into(), toolchain.to_string_lossy().replace('\\', "/")),
+        ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().into_owned()),
         ("BISON_EXECUTABLE".into(), bison.to_string_lossy().replace('\\', "/")),
     ];
     if let Some(ffmpeg) = env::var_os("SHINKI_EMU_FFMPEG_INSTALLED") {
@@ -72,9 +72,16 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         return Err("CMake did not produce lifecycle test library".into());
     }
     println!("cargo:rustc-link-search=native={}", directory.display());
-    println!("cargo:rustc-link-lib={}={}", if static_link { "static" } else { "dylib" }, "shinki_emu_kirikiroid2_web");
-    let mut manifest = CoreBuildManifest::new("kirikiroid2-web", "native-shared")?;
-    manifest.native_library = Some(directory.join(library_name));
+    let library = if static_link && target.contains("apple") {
+        link_apple_static_core("kirikiroid2-web", &native, &[installed.join(&triplet)])?
+    } else {
+        println!("cargo:rustc-link-lib={}={}", if static_link { "static" } else { "dylib" }, "shinki_emu_kirikiroid2_web");
+        directory.join(library_name)
+    };
+    let mut manifest = CoreBuildManifest::new(
+        "kirikiroid2-web", if static_link { "native-static" } else { "native-shared" },
+    )?;
+    manifest.native_library = Some(library);
     manifest.resources.push(BuildAsset {
         source: directory.join("Resources"),
         dest: "Resources".into(),

@@ -9,7 +9,9 @@ Manager presents CPU leases and supplies optional typed window/modal services.
 There is no child process, socket protocol, Host PCM requirement, library reload,
 or second application event loop. Audio uses the original OpenAL playback device.
 
-The Rust adapter uses edition 2024 and requires Rust 1.98 or newer.
+iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
+
+The Rust adapter uses edition 2024 and requires Rust 1.99 or newer.
 
 ## Source provenance
 
@@ -136,7 +138,7 @@ disabled; missing dependencies fail with a preparation diagnostic.
 The upstream Python parser/resource generators remain build tools.
 
 For direct Cargo invocation, use a VS x64 developer shell and set `VCPKG_ROOT`,
-`SHINKI_EMU_VCPKG_INSTALLED` (the prepared install root),
+`SHINKI_EMU_NATIVE_VCPKG_ROOT` (containing `kirikiroid2-web/installed`),
 `SHINKI_EMU_VCPKG_TRIPLET=x64-windows`, and `BISON_EXECUTABLE`.
 The build script requires matching Windows x64 `HOST` and `TARGET`.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.

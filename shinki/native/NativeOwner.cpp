@@ -413,7 +413,11 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
             require(dladdr(reinterpret_cast<void *>(&open), &info) && info.dli_fname, "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
             const auto module_path = std::filesystem::u8path(info.dli_fname);
 #endif
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__APPLE__)
+            s->resources = (module_path.parent_path() / "cores/kirikiroid2-web/Resources").u8string();
+#else
             s->resources = (module_path.parent_path() / "Resources").u8string();
+#endif
             const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(
 #if defined(_WIN32)
                 GetCurrentProcessId()
@@ -550,6 +554,8 @@ extern "C" __declspec(dllexport) ShinkiEmuStatus shinki_emu_kirikiroid2_web_quer
     *out = version == ShinkiEmuABI_VERSION ? &api : nullptr;
     return *out ? ShinkiEmuOK : ShinkiEmuUNSUPPORTED;
 }
+#if !defined(SHINKI_EMU_STATIC_CORE)
 extern "C" __declspec(dllexport) ShinkiEmuStatus shinki_emu_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
     return shinki_emu_kirikiroid2_web_query(version, out);
 }
+#endif
