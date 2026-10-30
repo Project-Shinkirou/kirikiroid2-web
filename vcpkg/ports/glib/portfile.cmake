@@ -26,13 +26,9 @@ vcpkg_extract_source_archive(SOURCE_PATH
     PATCHES
         use-libiconv-on-windows.patch
         libintl.patch
+        windows-android-gdb-install.patch
         ${EMSCRIPTEN_PATCHES}
 )
-if(VCPKG_HOST_IS_WINDOWS AND VCPKG_CMAKE_SYSTEM_NAME STREQUAL "Android")
-    vcpkg_replace_string("${SOURCE_PATH}/glib/meson.build"
-        "gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' +\n                             glib_libdir)"
-        "gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', get_option('libdir'))")
-endif()
 
 set(LANGUAGES C CXX)
 if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
