@@ -55,7 +55,16 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if target == "x86_64-pc-windows-msvc" { definitions.push(("WINDOWS".into(), "ON".into())); }
     if target.contains("linux") && !target.contains("android") { definitions.push(("LINUX".into(), "ON".into())); }
     if target.contains("apple") { definitions.push(("APPLE".into(), "ON".into())); }
-    if target.contains("android") { definitions.push(("ANDROID".into(), "ON".into())); }
+    if target.contains("android") {
+        let arch = env::var("CARGO_CFG_TARGET_ARCH")?;
+        let abi = match arch.as_str() {
+            "aarch64" => "arm64-v8a",
+            "x86_64" => "x86_64",
+            other => return Err(format!("unsupported Android architecture {other}").into()),
+        };
+        definitions.push(("ANDROID".into(), "ON".into()));
+        definitions.push(("ANDROID_ABI".into(), abi.into()));
+    }
     if target.contains("ios") { definitions.push(("IOS".into(), "ON".into())); }
     let native = configure_cmake(root, &definitions, &["shinki_emu_kirikiroid2_web"])?;
     let directory = native.join("shinki");
