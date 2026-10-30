@@ -13,6 +13,11 @@ iOS builds retain only the uniquely named query entry and record the actual `nat
 
 The Rust adapter uses edition 2024 and requires Rust 1.99 or newer.
 
+The Apple FFmpeg overlay configures before cleaning its first architecture;
+later architectures clean only an existing configured Makefile. The libarchive
+overlay declares its complete compression/XML dependency closure so cross
+builds do not discover host MacPorts libraries.
+
 ## Source provenance
 
 - Upstream repository: `fenghengzhi/kirikiroid2-web`, `web` branch
