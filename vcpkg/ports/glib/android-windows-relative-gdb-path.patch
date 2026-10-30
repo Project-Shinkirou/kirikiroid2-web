@@ -1,7 +1,7 @@
 diff --git a/glib/meson.build b/glib/meson.build
 --- a/glib/meson.build
 +++ b/glib/meson.build
-@@ -562,4 +562,7 @@
+@@ -562,4 +562,5 @@
 -# XXX: We add a leading './' because glib_libdir is an absolute path and we
 -# need it to be a relative path so that join_paths appends it to the end.
 -gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' +
@@ -9,6 +9,5 @@ diff --git a/glib/meson.build b/glib/meson.build
 +if build_machine.system() == 'windows' and host_system == 'android'
 +  gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', get_option('libdir'))
 +else
-+  # Preserve upstream's relative absolute-path workaround for native builds.
 +  gdb_install_dir = join_paths(glib_datadir, 'gdb', 'auto-load', './' + glib_libdir)
 +endif
