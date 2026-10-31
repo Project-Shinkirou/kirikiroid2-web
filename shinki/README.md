@@ -164,7 +164,7 @@ disabled; missing dependencies fail with a preparation diagnostic.
 The upstream Python parser/resource generators remain build tools.
 
 For direct Cargo invocation, use a VS x64 developer shell and set `VCPKG_ROOT`,
-`SHINKI_EMU_VCPKG_INSTALLED` (the prepared install root),
+`SHINKI_EMU_NATIVE_VCPKG_ROOT` (the directory containing `kirikiroid2-web/installed`),
 `SHINKI_EMU_VCPKG_TRIPLET=x64-windows`, and `BISON_EXECUTABLE`.
 The build script requires matching native Windows x64/MSVC or Linux x64/GNU `HOST` and `TARGET`.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.
