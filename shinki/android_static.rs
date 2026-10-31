@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::{collections::BTreeSet, env, error::Error, fs, path::{Path, PathBuf}, process::Command};
 
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
-const EXPORTS: [&str; 2] = ["shinki_emu_kirikiroid2_web_query", "shinki_emu_kirikiroid2_web_set_resource_root"];
+const EXPORTS: [&str; 3] = ["shinki_emu_kirikiroid2_web_query", "shinki_emu_kirikiroid2_web_set_resource_root", "shinki_emu_kirikiroid2_web_android_initialize"];
 
 fn capture(command: &mut Command) -> Result<String> {
     let output = command.output()?;
@@ -54,6 +54,15 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     let host = if cfg!(windows) { "windows-x86_64" } else if cfg!(target_os = "macos") { "darwin-x86_64" } else { "linux-x86_64" };
     let tools = ndk.join("toolchains/llvm/prebuilt").join(host).join("bin");
     let executable = |name: &str| tools.join(format!("{name}{}", if cfg!(windows) { ".exe" } else { "" }));
+    for input in &mut archives {
+        if input.file_name().is_some_and(|name| name == "libSDL2.a") {
+            let private = native.join("shinki/libSDL2-private.a");
+            capture(Command::new(executable("llvm-objcopy"))
+                .arg("--redefine-sym=JNI_OnLoad=shinki_krkr_sdl_on_load")
+                .arg(&*input).arg(&private))?;
+            *input = private;
+        }
+    }
     let object = native.join("shinki/krkr-closure.o");
     let response = native.join("shinki/krkr-closure.rsp");
     let mut args = vec!["-r".to_owned(), "--start-group".to_owned()];
@@ -63,6 +72,24 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     args.extend(["-o".into(), format!("\"{}\"", object.to_string_lossy().replace('\\', "/"))]);
     fs::write(&response, args.join("\n"))?;
     capture(Command::new(executable("ld.lld")).arg(format!("@{}", response.display())))?;
+    // Keep private Java class names and native RegisterNatives tables aligned.
+    // Equal-width replacements preserve ELF section offsets and relocations.
+    let mut bytes = fs::read(&object)?;
+    for (before, after) in [
+        (b"org/libsdl/app".as_slice(), b"org/krkrsd/app".as_slice()),
+        (b"org.libsdl.app".as_slice(), b"org.krkrsd.app".as_slice()),
+        (b"org/cocos2dx".as_slice(), b"org/krkrc2dx".as_slice()),
+        (b"org.cocos2dx".as_slice(), b"org.krkrc2dx".as_slice()),
+    ] {
+        assert_eq!(before.len(), after.len());
+        let mut offset = 0;
+        while let Some(index) = bytes[offset..].windows(before.len()).position(|window| window == before) {
+            let start = offset + index;
+            bytes[start..start + before.len()].copy_from_slice(after);
+            offset = start + before.len();
+        }
+    }
+    fs::write(&object, bytes)?;
     let symbols = capture(Command::new(executable("llvm-nm")).args(["--defined-only", "--extern-only", "--format=posix"]).arg(&object))?;
     let mut renames = BTreeSet::new();
     for line in symbols.lines() {

@@ -19,7 +19,8 @@ transitive archive closure. NDK `ld.lld -r` selects that closure without allowin
 duplicate definitions; `llvm-objcopy` namespaces every defined private symbol
 and its references before the final archive enters the Manager link. SDL,
 Cocos JNI bootstrap, private Lua and FFmpeg cannot interpose on another core.
-Only the unique query and resource-root setter retain their public names.
+Only the unique query, resource-root setter and Android host initializer retain
+their public names.
 Android platform and C++/OpenMP runtime imports remain normal shared imports.
 
 The Manager stages `Resources` and authentic dependency notices through
@@ -27,6 +28,26 @@ The Manager stages `Resources` and authentic dependency notices through
 then sets the absolute resource directory before registering the query table.
 Standalone shared builds retain the generic dynamic query. Static embedding
 does not enable downloadable Android dynamic-core installation.
+
+Java consumers are staged from the SHA512-verified Cocos 3.17.2 and SDL 2.32.10
+source archives already prepared by vcpkg. SDL uses private `org.krkrsd.app`
+classes and Cocos uses `org.krkrc2dx.lib`; equal-width ELF class-name rewriting
+matches the staged Java namespaces. SDL's original native registration table
+runs through a uniquely named explicit initializer, not a second exported
+`JNI_OnLoad`. Cocos helper, bitmap and sensor methods use explicit
+`RegisterNatives` tables with their original signatures.
+
+Manager calls `initialize_android` while attached to its AndroidApp JavaVM,
+before registry initialization or the first native session. Cocos retains the
+application Context/classloader, and owner-thread JNI calls use its original
+attach/TLS-detach path. Java helpers borrow the Manager Activity, receive
+pause/resume, and release Activity/audio/sensor references after native teardown.
+`KR2Activity` is a ContextWrapper service, not another Activity entry point.
+Queued Java callbacks drain on the original core owner; modal requests and
+game exit use the existing embedded host rather than the old Activity/process
+exit path. Standalone-only advertisement dispatch is excluded from embedding;
+the upstream handler itself has no implementation, and no replacement ad
+backend is introduced.
 
 ## Source provenance
 

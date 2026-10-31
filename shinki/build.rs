@@ -3,6 +3,7 @@ use shinki_emu_build::{
 };
 use std::{env, fs, path::PathBuf};
 mod android_static;
+mod android_java;
 
 fn build() -> Result<(), Box<dyn std::error::Error>> {
     let target = env::var("TARGET")?;
@@ -14,6 +15,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     ];
     if !supported.contains(&target.as_str()) {
         return Err(format!("KiriKiri unsupported TARGET={target}").into());
+    }
+    if cfg!(feature = "static") && !target.ends_with("-linux-android") {
+        return Err("the static feature is supported by the Android Manager adapter".into());
     }
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
@@ -98,6 +102,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !directory.join(lifecycle).is_file() {
         return Err("CMake did not produce lifecycle test library".into());
     }
+    if android_static {
+        android_java::stage(&adapter, &native)?;
+    }
     let library = if android_static {
         android_static::link(&native, &directory.join(library_name))?
     } else {
@@ -111,6 +118,12 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         source: directory.join("Resources"),
         dest: "Resources".into(),
     });
+    if android_static {
+        manifest.licenses.push(BuildAsset {
+            source: directory.join("Resources/android-host/licenses"),
+            dest: "licenses/kirikiroid2-web/android-java".into(),
+        });
+    }
     for (source, name) in [
         ("LICENSE", "LICENSE"),
         ("shinki/README.md", "adapter-README.md"),

@@ -1,0 +1,196 @@
+//! Stage the Java consumers of the pinned static SDL/Cocos archives.
+use flate2::read::GzDecoder;
+use sha2::{Digest, Sha512};
+use std::{env, error::Error, fs, io::Read, path::{Path, PathBuf}};
+type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
+
+fn replace(source: &mut String, before: &str, after: &str) -> Result<()> {
+    if source.matches(before).count() != 1 { return Err(format!("pinned Java source drift: {before}").into()); }
+    *source = source.replacen(before, after, 1);
+    Ok(())
+}
+fn helper(source: &mut String) -> Result<()> {
+    replace(source, "public static void init(final Activity activity)", "public static void init(final Activity activity, final Cocos2dxHelperListener listener)")?;
+    replace(source, "(Cocos2dxHelperListener)activity", "listener")?;
+    replace(source, "((Cocos2dxActivity)sActivity).runOnGLThread(r);", "sCocos2dxHelperListener.runOnGLThread(r);")?;
+    replace(source, "((Cocos2dxActivity)sActivity).setKeepScreenOn(value);", "sActivity.runOnUiThread(() -> { if (value) sActivity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else sActivity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); });")?;
+    *source = source.replace("Cocos2dxActivity.getContext()", "sActivity");
+    replace(source, "Cocos2dxBitmap.setContext(activity);", "Cocos2dxBitmap.setContext(activity.getApplicationContext());")?;
+    replace(source, "new Cocos2dxMusic(activity)", "new Cocos2dxMusic(activity.getApplicationContext())")?;
+    replace(source, "nativeSetContext((Context)activity,", "nativeSetContext(activity.getApplicationContext(),")?;
+    replace(source, "new Cocos2dxAccelerometer(sActivity)", "new Cocos2dxAccelerometer(sActivity.getApplicationContext())")?;
+    replace(source, "new Cocos2dxSound(sActivity)", "new Cocos2dxSound(sActivity.getApplicationContext())")?;
+    replace(source, "android.os.Process.killProcess(android.os.Process.myPid());", "org.shinkirou.krkr.KrkrHost.requestExit();")?;
+    replace(source, "boolean suc = activity.getApplicationContext().bindService", "serviceBound = activity.getApplicationContext().bindService")?;
+    replace(source, "private static boolean sInited = false;", r#"private static boolean sInited = false;
+    private static boolean serviceBound;
+    public static void releaseHost() {
+        if (!sInited) return;
+        if (sCocos2dxAccelerometer != null) sCocos2dxAccelerometer.disable();
+        if (sCocos2dMusic != null) sCocos2dMusic.end();
+        if (sCocos2dSound != null) sCocos2dSound.end();
+        if (serviceBound) sActivity.getApplicationContext().unbindService(connection);
+        serviceBound = false;
+        sCocos2dxAccelerometer = null;
+        sCocos2dMusic = null;
+        sCocos2dSound = null;
+        sCocos2dxHelperListener = null;
+        sActivity = null;
+        sAssetManager = null;
+        sVibrateService = null;
+        sOBBFile = null;
+        sAssetsPath = "";
+        sInited = false;
+    }"#)?;
+    if source.contains("Cocos2dxActivity") { return Err("unadapted Cocos Activity dependency".into()); }
+    Ok(())
+}
+
+fn sdl_contract(source: &str, contracts: &mut Vec<serde_json::Value>) -> Result<()> {
+    for (table, class) in [
+        ("SDLActivity_tab", "SDLActivity"),
+        ("SDLInputConnection_tab", "SDLInputConnection"),
+        ("SDLAudioManager_tab", "SDLAudioManager"),
+        ("SDLControllerManager_tab", "SDLControllerManager"),
+    ] {
+        let marker = format!("static JNINativeMethod {table}[] = {{");
+        let body = source.split_once(&marker).ok_or("pinned SDL JNI table missing")?.1
+            .split_once("};").ok_or("pinned SDL JNI table end missing")?.0;
+        for line in body.lines().filter(|line| line.trim_start().starts_with('{')) {
+            let fields: Vec<_> = line.split('"').collect();
+            let (name, signature) = (fields.get(1).ok_or("SDL JNI name")?, fields.get(3).ok_or("SDL JNI signature")?);
+            contracts.push(serde_json::json!({
+                "class": format!("Lorg/krkrsd/app/{class};"),
+                "name": name,
+                "signature": signature.replace("org/libsdl/app", "org/krkrsd/app"),
+                "native": true,
+            }));
+        }
+    }
+    Ok(())
+}
+
+pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
+    let downloads = PathBuf::from(env::var_os("SHINKI_EMU_NATIVE_DOWNLOADS").ok_or("native downloads missing")?);
+    let cache = downloads.parent().ok_or("native work root missing")?.join("vcpkg-downloads");
+    let output = native.join("shinki/Resources/android-host");
+    let sources = output.join("java");
+    fs::create_dir_all(&sources)?;
+    let mut contracts = Vec::new();
+    let cocos_classes = ["Cocos2dxHelper.java", "Cocos2dxBitmap.java", "Cocos2dxTypefaces.java", "Cocos2dxMusic.java", "Cocos2dxSound.java", "Cocos2dxAccelerometer.java", "Cocos2dxRenderer.java", "Cocos2dxReflectionHelper.java"];
+    for (file, hash, prefix, cocos) in [
+        ("cocos2d-x-3.17.2.tar.gz", "b2d5ac968231892c39a953d82e9791c2182b0dbceca5791647bb2daad258134725386c9eb1d32de148465d88d2d932b29f241af0f5f4b4e6d9d80d9684f531fa", "cocos2d-x-cocos2d-x-3.17.2/cocos/platform/android/java/", true),
+        ("libsdl-org-SDL-release-2.32.10.tar.gz", "d5622d6bb7266f7942a7b8ad43e8a22524893bf0c2ea1af91204838d9b78d32768843f6faa248757427b8404b8c6443776d4afa6b672cd8571a4e0c03a829383", "SDL-release-2.32.10/android-project/app/src/main/java/", false),
+    ] {
+        let archive = cache.join(file);
+        println!("cargo:rerun-if-changed={}", archive.display());
+        let bytes = fs::read(&archive)?;
+        if format!("{:x}", Sha512::digest(&bytes)) != hash { return Err(format!("pinned Java archive SHA512 mismatch: {file}").into()); }
+        let mut archive = tar::Archive::new(GzDecoder::new(bytes.as_slice()));
+        for entry in archive.entries()? {
+            let mut entry = entry?;
+            if !entry.header().entry_type().is_file() { continue; }
+            let path = entry.path()?.to_string_lossy().replace('\\', "/");
+            if path == "SDL-release-2.32.10/src/core/android/SDL_android.c" {
+                let mut source = String::new();
+                entry.read_to_string(&mut source)?;
+                sdl_contract(&source, &mut contracts)?;
+                continue;
+            }
+            let notice = path.strip_prefix("cocos2d-x-cocos2d-x-3.17.2/licenses/")
+                .filter(|name| matches!(*name, "LICENSE_cocos2d-x.txt" | "LICENSE_cocosdenshion.txt" | "LICENSE_com.android.vending.expansion.zipfile.txt"))
+                .or_else(|| (path == "SDL-release-2.32.10/LICENSE.txt").then_some("SDL-LICENSE.txt"));
+            if let Some(name) = notice {
+                fs::create_dir_all(output.join("licenses"))?;
+                entry.unpack(output.join("licenses").join(name))?;
+                continue;
+            }
+            let Some(relative) = path.strip_prefix(prefix) else { continue; };
+            if cocos && relative == "libs/com.android.vending.expansion.zipfile.jar" {
+                fs::create_dir_all(output.join("libs"))?;
+                entry.unpack(output.join("libs/com.android.vending.expansion.zipfile.jar"))?;
+                continue;
+            }
+            let relative = if cocos {
+                let Some(relative) = relative.strip_prefix("src/") else { continue; };
+                if !cocos_classes.iter().any(|name| relative == format!("org/cocos2dx/lib/{name}")) && relative != "com/enhance/gameservice/IGameTuningService.aidl" { continue; }
+                relative
+            } else { relative };
+            if !relative.ends_with(".java") && !relative.ends_with(".aidl") { continue; }
+            let mut text = String::new();
+            entry.read_to_string(&mut text)?;
+            if relative.ends_with("Cocos2dxHelper.java") { helper(&mut text)?; }
+            if relative.ends_with("Cocos2dxAccelerometer.java") {
+                replace(&mut text, "Cocos2dxGLSurfaceView.queueAccelerometer(x,y,z,sensorEvent.timestamp);", "final float ax = x, ay = y, az = z; final long timestamp = sensorEvent.timestamp; org.shinkirou.krkr.KrkrHost.queue(() -> onSensorChanged(ax, ay, az, timestamp));")?;
+            }
+            text = text.replace("org.cocos2dx", "org.krkrc2dx").replace("org/cocos2dx", "org/krkrc2dx").replace("org.libsdl.app", "org.krkrsd.app").replace("org/libsdl/app", "org/krkrsd/app");
+            let destination = sources.join(relative.replace("org/cocos2dx", "org/krkrc2dx").replace("org/libsdl/app", "org/krkrsd/app"));
+            fs::create_dir_all(destination.parent().unwrap())?;
+            fs::write(destination, text)?;
+        }
+    }
+    for (source, destination) in [("android/KrkrHost.java", "org/shinkirou/krkr/KrkrHost.java"), ("android/KR2Activity.java", "org/tvp/kirikiri2/KR2Activity.java")] {
+        let destination = sources.join(destination);
+        fs::create_dir_all(destination.parent().unwrap())?;
+        fs::copy(adapter.join(source), destination)?;
+    }
+    for name in [
+        "java/org/krkrc2dx/lib/Cocos2dxHelper.java",
+        "java/org/krkrc2dx/lib/Cocos2dxBitmap.java",
+        "java/org/krkrsd/app/SDL.java",
+        "java/org/krkrsd/app/SDLActivity.java",
+        "java/org/krkrsd/app/SDLAudioManager.java",
+        "java/org/krkrsd/app/SDLControllerManager.java",
+        "java/com/enhance/gameservice/IGameTuningService.aidl",
+        "libs/com.android.vending.expansion.zipfile.jar",
+        "licenses/LICENSE_cocos2d-x.txt",
+        "licenses/LICENSE_cocosdenshion.txt",
+        "licenses/LICENSE_com.android.vending.expansion.zipfile.txt",
+        "licenses/SDL-LICENSE.txt",
+    ] {
+        if !output.join(name).is_file() { return Err(format!("required pinned Java input missing: {name}").into()); }
+    }
+    if contracts.is_empty() { return Err("SDL JNI contract was not collected".into()); }
+    for (class, name, signature, native) in [
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "nativeSetContext", "(Landroid/content/Context;Landroid/content/res/AssetManager;)V", true),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "nativeSetAudioDeviceInfo", "(ZII)V", true),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "nativeSetEditTextDialogResult", "([B)V", true),
+        ("org/krkrc2dx/lib/Cocos2dxBitmap", "nativeInitBitmapDC", "(II[B)V", true),
+        ("org/krkrc2dx/lib/Cocos2dxAccelerometer", "onSensorChanged", "(FFFJ)V", true),
+        ("org/shinkirou/krkr/KrkrHost", "nativeInitialize", "()I", true),
+        ("org/shinkirou/krkr/KrkrHost", "nativeRequestExit", "()V", true),
+        ("org/tvp/kirikiri2/KR2Activity", "nativeCommitText", "(Ljava/lang/String;)V", true),
+        ("org/shinkirou/krkr/KrkrHost", "initialize", "(Landroid/app/Activity;)V", false),
+        ("org/shinkirou/krkr/KrkrHost", "ownerStarted", "()V", false),
+        ("org/shinkirou/krkr/KrkrHost", "drain", "()V", false),
+        ("org/shinkirou/krkr/KrkrHost", "ownerStopped", "()V", false),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "getAssetsPath", "()Ljava/lang/String;", false),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "getDPI", "()I", false),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "getCurrentLanguage", "()Ljava/lang/String;", false),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "getVersion", "()Ljava/lang/String;", false),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "openURL", "(Ljava/lang/String;)Z", false),
+        ("org/krkrc2dx/lib/Cocos2dxRenderer", "setAnimationInterval", "(F)V", false),
+        ("org/krkrc2dx/lib/Cocos2dxBitmap", "createTextBitmapShadowStroke", "([BLjava/lang/String;IIIIIIIIFZFFFFZIIIIFZI)Z", false),
+        ("org/tvp/kirikiri2/KR2Activity", "updateMemoryInfo", "()V", false),
+        ("org/tvp/kirikiri2/KR2Activity", "getAvailMemory", "()J", false),
+        ("org/tvp/kirikiri2/KR2Activity", "getUsedMemory", "()J", false),
+        ("org/tvp/kirikiri2/KR2Activity", "getDeviceId", "()Ljava/lang/String;", false),
+        ("org/tvp/kirikiri2/KR2Activity", "GetInstance", "()Lorg/tvp/kirikiri2/KR2Activity;", false),
+        ("org/tvp/kirikiri2/KR2Activity", "GetVersion", "()Ljava/lang/String;", false),
+        ("org/tvp/kirikiri2/KR2Activity", "getStoragePath", "()[Ljava/lang/String;", false),
+        ("org/tvp/kirikiri2/KR2Activity", "getLocaleName", "()Ljava/lang/String;", false),
+        ("org/tvp/kirikiri2/KR2Activity", "isWritableNormalOrSaf", "(Ljava/lang/String;)Z", false),
+        ("org/tvp/kirikiri2/KR2Activity", "CreateFolders", "(Ljava/lang/String;)Z", false),
+        ("org/tvp/kirikiri2/KR2Activity", "WriteFile", "(Ljava/lang/String;[B)Z", false),
+        ("org/tvp/kirikiri2/KR2Activity", "DeleteFile", "(Ljava/lang/String;)Z", false),
+        ("org/tvp/kirikiri2/KR2Activity", "RenameFile", "(Ljava/lang/String;Ljava/lang/String;)Z", false),
+        ("org/tvp/kirikiri2/KR2Activity", "showTextInput", "(IIII)V", false),
+        ("org/tvp/kirikiri2/KR2Activity", "hideTextInput", "()V", false),
+    ] {
+        contracts.push(serde_json::json!({
+            "class": format!("L{class};"), "name": name, "signature": signature, "native": native,
+        }));
+    }
+    fs::write(output.join("jni-contract.json"), serde_json::to_vec_pretty(&contracts)?)?;
+    Ok(output)
+}

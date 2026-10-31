@@ -42,6 +42,11 @@ project(${APP_NAME})
 
 option(ENABLE_TESTS "enable tests execute build(exclude android)" ON)
 option(BUILD_TOOLS "build tools execute build(exclude android ios)" ON)
+option(KRKR2_SHINKI_EMU "build the ShinkiEMU C ABI v3 core" OFF)
+option(KRKR2_SHINKI_EMU_STATIC "build the Android Manager static core" OFF)
+if(KRKR2_SHINKI_EMU_STATIC)
+    add_compile_definitions(KRKR2_SHINKI_EMU=1)
+endif()
 option(KRKR2_WEB_DEBUG_ENABLE_ASAN "enable AddressSanitizer in Web Debug builds" ON)
 option(KRKR2_WEB_ENABLE_SOURCE_MAP "emit a WebAssembly source map for Web builds" OFF)
 option(KRKR2_ENABLE_WASMTIME_HEADLESS "build the generic Wasmtime headless debug runner" OFF)
@@ -395,8 +400,7 @@ if(BUILD_TOOLS AND NOT (IOS OR ANDROID OR WEB))
     add_subdirectory(tools)
 endif()
 
-# ShinkiEMU C ABI v3 adapter DLL; the standalone executable is unchanged.
-option(KRKR2_SHINKI_EMU "build the ShinkiEMU core library (Windows x64/MSVC)" OFF)
+# ShinkiEMU C ABI v3 adapter; the standalone entry point is not built here.
 if(KRKR2_SHINKI_EMU)
     add_subdirectory(shinki/native "${CMAKE_CURRENT_BINARY_DIR}/shinki")
 endif()

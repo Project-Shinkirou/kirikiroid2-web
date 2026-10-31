@@ -10,12 +10,23 @@ unsafe extern "C" {
 #[cfg(feature = "static")]
 unsafe extern "C" {
     fn shinki_emu_kirikiroid2_web_set_resource_root(path: *const u8, length: usize) -> Status;
+    fn shinki_emu_kirikiroid2_web_android_initialize(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status;
 }
 
 /// Configure the APK resources extracted into the Manager's app-private tree.
 #[cfg(feature = "static")]
 pub fn set_resource_root(path: &str) -> Status {
     unsafe { shinki_emu_kirikiroid2_web_set_resource_root(path.as_ptr(), path.len()) }
+}
+
+/// Initialize the private Cocos/SDL Java consumers before query registration.
+///
+/// # Safety
+/// `vm` and `activity` must be the live Manager AndroidApp handles. The calling
+/// thread must be attached to `vm`; the host owns the Activity lifecycle.
+#[cfg(all(feature = "static", target_os = "android"))]
+pub unsafe fn initialize_android(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status {
+    unsafe { shinki_emu_kirikiroid2_web_android_initialize(vm, activity) }
 }
 
 pub const QUERY: Query = query;

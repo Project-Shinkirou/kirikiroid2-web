@@ -98,7 +98,9 @@ SimpleMediaFilePlayer::~SimpleMediaFilePlayer() {
     if(_player) {
         delete _player, _player = nullptr;
     }
+#if !defined(KRKR2_SHINKI_EMU)
     TVPControlAdDialog(0x10002, 1, 0);
+#endif
 }
 
 SimpleMediaFilePlayer *SimpleMediaFilePlayer::create() {
@@ -110,7 +112,9 @@ SimpleMediaFilePlayer *SimpleMediaFilePlayer::create() {
 }
 
 void SimpleMediaFilePlayer::PlayFile(ttstr uri) {
+#if !defined(KRKR2_SHINKI_EMU)
     TVPControlAdDialog(0x10002, 0, 0);
+#endif
     tTJSBinaryStream *stream = TVPCreateStream(uri, TJS_BS_READ);
     ttstr ext = TVPExtractStorageExt(uri);
     ttstr filename = TVPExtractStorageName(uri);

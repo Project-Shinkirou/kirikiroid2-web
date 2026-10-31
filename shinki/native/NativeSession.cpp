@@ -8,6 +8,9 @@
 #include "NativeSession.h"
 #include "HostModal.h"
 #include "NativeLifecycle.h"
+#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+#include "AndroidHost.h"
+#endif
 #include "environ/cocos2d/AppDelegate.h"
 #include "environ/cocos2d/MainScene.h"
 #include "environ/ui/GlobalPreferenceForm.h"
@@ -190,11 +193,18 @@ void NativeSession::caption(void *context, iWindowLayer *, const std::string &te
 void NativeSession::tick(float seconds) {
     if(callbacks_.is_cancelled(callbacks_.context))
         throw NativeCancelled();
+#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+    android::drain();
+#endif
     auto director = cocos2d::Director::getInstance();
     director->mainLoop(seconds);
 }
 void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
     check_thread();
+#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+    android::owner_started();
+    android_owner_ = true;
+#endif
     if(!options.window.width || !options.window.height || options.window.focused > 1 || options.window.visible > 1)
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_WINDOW_STATE");
     auto game = path_text(options.game_path_utf8, options.game_path_bytes);
@@ -352,6 +362,9 @@ void NativeSession::shutdown() {
     TJS::TJSExecutionCancelled = nullptr;
     TJS::TJSExecutionCancellationContext = nullptr;
     if(installed_) { TVPRemoveEmbeddedSessionHost(&host_); installed_ = false; }
+#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+    if(android_owner_) { cleanup([] { android::owner_stopped(); }); android_owner_ = false; }
+#endif
     spdlog::info("SHINKI_EMU_KRKR_NATIVE_CLOSED cleanup_failed={}", bool(failure));
     if(failure) std::rethrow_exception(failure);
 }

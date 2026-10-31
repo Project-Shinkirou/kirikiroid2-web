@@ -929,8 +929,10 @@ public:
             TVPMainScene::GetInstance()->scheduleUpdate();
 
             cocos2d::Director::getInstance()->purgeCachedData();
+#if !defined(KRKR2_SHINKI_EMU)
             TVPControlAdDialog(0x10002, 0,
                                0); // ensure to close banner ad
+#endif
         }
         Director *director = Director::getInstance();
         modal_result_ = 0;
@@ -2062,7 +2064,9 @@ void TVPMainScene::pushUIForm(cocos2d::Node *ui, eEnterAni ani) {
         CCLOGERROR("TVPMainScene::pushUIForm: ui is nullptr");
         return;
     }
+#if !defined(KRKR2_SHINKI_EMU)
     TVPControlAdDialog(0x10002, 1, 0);
+#endif
     int n = UINode->getChildrenCount();
     if(ani == eEnterAniNone) {
         UINode->addChild(ui);
@@ -2102,9 +2106,11 @@ void TVPMainScene::popUIForm(cocos2d::Node *form, eLeaveAni ani) {
     int n = UINode->getChildrenCount();
     if(n <= 0)
         return;
+#if !defined(KRKR2_SHINKI_EMU)
     if(n == 1) {
         TVPControlAdDialog(0x10002, 0, 0);
     }
+#endif
     auto children = UINode->getChildren();
     if(ani == eLeaveAniNone) {
         if(n > 1) {
@@ -2216,8 +2222,10 @@ void TVPMainScene::doStartup(float dt, std::string path) {
         scheduleUpdate();
 
         cocos2d::Director::getInstance()->purgeCachedData();
+#if !defined(KRKR2_SHINKI_EMU)
         TVPControlAdDialog(0x10002, 0,
                            0); // ensure to close banner ad
+#endif
     }
 
     TVPWindowLayer *pWin = _lastWindowLayer;
@@ -2534,7 +2542,9 @@ void TVPMainScene::showWindowManagerOverlay(bool bVisible) {
 }
 
 void TVPMainScene::popAllUIForm() {
+#if !defined(KRKR2_SHINKI_EMU)
     TVPControlAdDialog(0x10002, 0, 0);
+#endif
     auto children = UINode->getChildren();
     for(auto ui : children) {
         cocos2d::Size size = getContentSize();

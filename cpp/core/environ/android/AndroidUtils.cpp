@@ -31,6 +31,8 @@
 #include "EventIntf.h"
 #include "RenderManager.h"
 #include <sys/stat.h>
+#include "EmbeddedSession.h"
+#include "Exception.h"
 
 USING_NS_CC;
 
@@ -514,6 +516,12 @@ using namespace kr2android;
 
 int TVPShowSimpleMessageBox(const char *pszText, const char *pszTitle,
                             unsigned int nButton, const char **btnText) {
+    if(const auto host = TVPGetEmbeddedModalHost()) {
+        std::vector<ttstr> buttons;
+        buttons.reserve(nButton);
+        for(unsigned int i = 0; i < nButton; ++i) buttons.emplace_back(btnText[i]);
+        return TVPRequestEmbeddedModal(*host, ttstr(pszTitle), ttstr(pszText), buttons, nullptr);
+    }
     JniMethodInfo methodInfo;
     if(JniHelper::getStaticMethodInfo(
            methodInfo, "org/tvp/kirikiri2/KR2Activity", "ShowMessageBox",
@@ -569,6 +577,8 @@ int TVPShowSimpleMessageBox(const ttstr &text, const ttstr &caption,
 int TVPShowSimpleInputBox(ttstr &text, const ttstr &caption,
                           const ttstr &prompt,
                           const std::vector<ttstr> &vecButtons) {
+    if(const auto host = TVPGetEmbeddedModalHost())
+        return TVPRequestEmbeddedModal(*host, caption, prompt, vecButtons, &text);
     JniMethodInfo methodInfo;
     if(JniHelper::getStaticMethodInfo(
            methodInfo, "org/tvp/kirikiri2/KR2Activity", "ShowInputBox",
@@ -902,6 +912,10 @@ std::string TVPGetCurrentLanguage() {
 }
 
 void TVPExitApplication(int code) {
+    if(const auto host = TVPGetEmbeddedSessionHost()) {
+        host->request_exit(host->context, code);
+        throw EAbort(TJS_W("embedded session exit"));
+    }
     TVPDeliverCompactEvent(TVP_COMPACT_LEVEL_MAX);
     if(!TVPIsSoftwareRenderManager())
         iTVPTexture2D::RecycleProcess();

@@ -13,6 +13,7 @@ target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,COMPILE_DEFINITIONS>")
 if(KRKR2_SHINKI_EMU_STATIC)
     target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE SHINKI_EMU_STATIC_CORE=1)
+    target_sources(shinki_emu_kirikiroid2_web PRIVATE AndroidHost.cpp)
     # An unbuilt shared target exposes CMake's fully resolved transitive link
     # plan through the File API. The actual adapter and dependencies are static.
     add_library(shinki_krkr_link_plan SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)

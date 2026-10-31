@@ -1,0 +1,93 @@
+package org.shinkirou.krkr;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import java.lang.ref.WeakReference;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.RejectedExecutionException;
+import org.krkrc2dx.lib.Cocos2dxHelper;
+import org.krkrsd.app.SDL;
+
+/** Services for the native core; the Manager remains the only entry Activity. */
+public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
+    private static WeakReference<Activity> activity = new WeakReference<>(null);
+    private static final ConcurrentLinkedQueue<Runnable> pending = new ConcurrentLinkedQueue<>();
+    private static volatile boolean initialized;
+    private static volatile boolean ownerActive;
+    private static volatile boolean resumed;
+
+    private static native int nativeInitialize();
+    private static native void nativeRequestExit();
+    public static void requestExit() { queue(KrkrHost::nativeRequestExit); }
+
+    // Called by the registered native initializer, before any query registration.
+    public static synchronized void initialize(Activity host) {
+        if (initialized) throw new IllegalStateException("KRKR_HOST_ALREADY_INITIALIZED");
+        activity = new WeakReference<>(host);
+        if (nativeInitialize() < 0) throw new IllegalStateException("KRKR_SDL_JNI_INITIALIZATION");
+        SDL.initialize();
+        SDL.setContext(host.getApplicationContext());
+        SDL.setupJNI();
+        Cocos2dxHelper.init(host, new KrkrHost());
+        org.tvp.kirikiri2.KR2Activity.initialize(host);
+        initialized = true;
+        if (resumed) Cocos2dxHelper.onResume();
+    }
+
+    public static Activity activity() {
+        Activity host = activity.get();
+        if (host == null || host.isDestroyed()) throw new IllegalStateException("KRKR_ACTIVITY_UNAVAILABLE");
+        return host;
+    }
+
+    public static synchronized void queue(Runnable runnable) {
+        if (!ownerActive) throw new RejectedExecutionException("KRKR_OWNER_NOT_RUNNING");
+        pending.add(runnable);
+    }
+
+    public static synchronized void ownerStarted() { ownerActive = true; }
+    public static void drain() {
+        for (Runnable next; (next = pending.poll()) != null;) next.run();
+    }
+    public static synchronized void ownerStopped() {
+        ownerActive = false;
+        pending.clear();
+    }
+
+    public static synchronized void onResume() {
+        resumed = true;
+        if (initialized) {
+            Cocos2dxHelper.onResume();
+            Cocos2dxHelper.onEnterForeground();
+        }
+    }
+    public static synchronized void onPause() {
+        resumed = false;
+        if (initialized) {
+            Cocos2dxHelper.onPause();
+            Cocos2dxHelper.onEnterBackground();
+        }
+    }
+
+    // MainActivity calls this after NativeActivity.onDestroy has joined native
+    // execution; there can no longer be an owner using the Java services.
+    public static synchronized void destroy(Activity host) {
+        if (activity.get() != host) return;
+        if (ownerActive) throw new IllegalStateException("KRKR_OWNER_SURVIVED_ACTIVITY");
+        if (initialized) {
+            org.tvp.kirikiri2.KR2Activity.release();
+            Cocos2dxHelper.releaseHost();
+            SDL.setContext(null);
+            initialized = false;
+        }
+        pending.clear();
+        activity.clear();
+    }
+
+    @Override public void runOnGLThread(Runnable runnable) { queue(runnable); }
+    @Override public void showDialog(String title, String message) {
+        Activity host = activity();
+        host.runOnUiThread(() -> new AlertDialog.Builder(host).setTitle(title)
+            .setMessage(message).setPositiveButton(android.R.string.ok, null).show());
+    }
+}

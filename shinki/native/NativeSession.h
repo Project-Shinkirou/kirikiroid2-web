@@ -21,6 +21,9 @@ class NativeSession final {
     unsigned int logical_width_ = 0, logical_height_ = 0;
     bool installed_ = false, launched_ = false;
     bool dirty_ = true, changed_ = false, closed_ = false;
+#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+    bool android_owner_ = false;
+#endif
     std::atomic<bool> exited_{false};
     int exit_code_ = 0;
     static void changed(void *, tTJSNI_BaseWindow *);
