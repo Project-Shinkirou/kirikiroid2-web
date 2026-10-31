@@ -12,6 +12,8 @@ The embedded context API uses the platform OpenAL header's device/context types,
 including Apple's opaque typedefs, shared by the native owner and wave mixer.
 Apple links retain the NCB registrar archive as a CMake target dependency and
 force-load its objects into the final image, including embedded adapter builds.
+The Cocos audio patch renames only its macOS compatibility class; iOS keeps
+AVFoundation's real `AVAudioSession` for activation, categories and interruptions.
 
 iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
 
