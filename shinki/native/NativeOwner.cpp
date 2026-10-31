@@ -34,6 +34,7 @@
 namespace {
 #if defined(SHINKI_EMU_STATIC_CORE)
 std::string static_resources;
+std::mutex static_resources_mutex;
 #endif
 using Clock = std::chrono::steady_clock;
 std::atomic<bool> runtime_poisoned{false};
@@ -402,8 +403,11 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
             if(!std::filesystem::is_directory(path)) path = path.parent_path();
             s->game = path.u8string();
 #if defined(SHINKI_EMU_STATIC_CORE)
-            require(!static_resources.empty(), "KRKR_RESOURCE_ROOT_MISSING", ShinkiEmuINVALID_STATE);
-            s->resources = static_resources;
+            {
+                std::lock_guard<std::mutex> lock(static_resources_mutex);
+                require(!static_resources.empty(), "KRKR_RESOURCE_ROOT_MISSING", ShinkiEmuINVALID_STATE);
+                s->resources = static_resources;
+            }
 #elif defined(_WIN32)
             HMODULE module = nullptr; wchar_t filename[32768];
             require(GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -558,6 +562,7 @@ const ShinkiEmuCoreApi api{{sizeof(ShinkiEmuCoreApi), ShinkiEmuABI_VERSION}, ini
 #if defined(SHINKI_EMU_STATIC_CORE)
 extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_set_resource_root(const uint8_t *path, size_t length) noexcept {
     return boundary(nullptr, [&] {
+        std::lock_guard<std::mutex> lock(static_resources_mutex);
         require(shinki::krkr::android::initialized(), "KRKR_ANDROID_HOST_UNINITIALIZED", ShinkiEmuINVALID_STATE);
         require(path && length && !occupied.load(), "KRKR_RESOURCE_ROOT_STATE", ShinkiEmuINVALID_STATE);
         const auto root = std::filesystem::u8path(std::string(reinterpret_cast<const char *>(path), length));
