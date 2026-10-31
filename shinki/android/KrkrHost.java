@@ -31,7 +31,7 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
             SDL.initialize();
             SDL.setContext(host.getApplicationContext());
             SDL.setupJNI();
-            Cocos2dxHelper.init(host, new KrkrHost());
+            Cocos2dxHelper.init(host);
             org.tvp.kirikiri2.KR2Activity.initialize(host);
             initialized = true;
             if (resumed) Cocos2dxHelper.onResume();

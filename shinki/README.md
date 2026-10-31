@@ -42,6 +42,10 @@ before registry initialization or the first native session. Cocos retains the
 application Context/classloader, and owner-thread JNI calls use its original
 attach/TLS-detach path. Java helpers borrow the Manager Activity, receive
 pause/resume, and release Activity/audio/sensor references after native teardown.
+The original Helper `init(Activity)` signature is preserved. A recreated
+NativeActivity rebinds Java services after the previous owner has joined; native
+VM/classloader setup is process-scoped, and initializer local references are
+bounded by a JNI local frame. No Activity local reference is retained by C++.
 `KR2Activity` is a ContextWrapper service, not another Activity entry point.
 Queued Java callbacks drain on the original core owner; modal requests and
 game exit use the existing embedded host rather than the old Activity/process

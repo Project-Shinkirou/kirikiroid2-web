@@ -10,8 +10,7 @@ fn replace(source: &mut String, before: &str, after: &str) -> Result<()> {
     Ok(())
 }
 fn helper(source: &mut String) -> Result<()> {
-    replace(source, "public static void init(final Activity activity)", "public static void init(final Activity activity, final Cocos2dxHelperListener listener)")?;
-    replace(source, "(Cocos2dxHelperListener)activity", "listener")?;
+    replace(source, "(Cocos2dxHelperListener)activity", "new org.shinkirou.krkr.KrkrHost()")?;
     replace(source, "((Cocos2dxActivity)sActivity).runOnGLThread(r);", "sCocos2dxHelperListener.runOnGLThread(r);")?;
     replace(source, "((Cocos2dxActivity)sActivity).setKeepScreenOn(value);", "sActivity.runOnUiThread(() -> { if (value) sActivity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else sActivity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); });")?;
     *source = source.replace("Cocos2dxActivity.getContext()", "sActivity");
@@ -168,6 +167,7 @@ pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
         ("org/shinkirou/krkr/KrkrHost", "ownerStarted", "()V", false),
         ("org/shinkirou/krkr/KrkrHost", "drain", "()V", false),
         ("org/shinkirou/krkr/KrkrHost", "ownerStopped", "()V", false),
+        ("org/krkrc2dx/lib/Cocos2dxHelper", "init", "(Landroid/app/Activity;)V", false),
         ("org/krkrc2dx/lib/Cocos2dxHelper", "getAssetsPath", "()Ljava/lang/String;", false),
         ("org/krkrc2dx/lib/Cocos2dxHelper", "getDPI", "()I", false),
         ("org/krkrc2dx/lib/Cocos2dxHelper", "getCurrentLanguage", "()Ljava/lang/String;", false),

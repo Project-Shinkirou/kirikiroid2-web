@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <atomic>
+#include <mutex>
 
 extern "C" {
 // This name is applied to SDL's original loader before closure resolution.
@@ -25,6 +26,15 @@ JavaVM *host_vm = nullptr;
 jclass host_class = nullptr;
 jmethodID start_method = nullptr, drain_method = nullptr, stop_method = nullptr;
 std::atomic<bool> ready{false};
+std::mutex initialize_mutex;
+class LocalFrame {
+    JNIEnv *env_;
+public:
+    explicit LocalFrame(JNIEnv *env) : env_(env) {
+        if(env_->PushLocalFrame(32) != JNI_OK) throw std::runtime_error("KRKR_JNI_LOCAL_FRAME");
+    }
+    ~LocalFrame() { env_->PopLocalFrame(nullptr); }
+};
 
 void check(JNIEnv *env, const char *code) {
     if(env->ExceptionCheck()) {
@@ -82,14 +92,35 @@ void owner_call(jmethodID method) {
 
 extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_android_initialize(void *vm, void *activity) noexcept {
     try {
-        if(!vm || !activity || host_vm) return ShinkiEmuINVALID_STATE;
-        host_vm = static_cast<JavaVM *>(vm);
+        std::lock_guard<std::mutex> lock(initialize_mutex);
+        if(!vm || !activity || (host_vm && host_vm != vm)) return ShinkiEmuINVALID_STATE;
+        auto java_vm = static_cast<JavaVM *>(vm);
         JNIEnv *env = nullptr;
-        if(host_vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) return ShinkiEmuINVALID_STATE;
-        cocos2d::JniHelper::setJavaVM(host_vm);
+        if(java_vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) return ShinkiEmuINVALID_STATE;
+        LocalFrame frame(env);
+        if(host_class) {
+            // NativeActivity may be recreated in the same process. The old
+            // owner has joined before Java releases its Activity references;
+            // retain only process-lifetime VM/application-classloader state.
+            auto method = env->GetStaticMethodID(host_class, "initialize", "(Landroid/app/Activity;)V");
+            check(env, "KRKR_JAVA_HOST_INITIALIZER");
+            if(!method) throw std::runtime_error("KRKR_JAVA_HOST_INITIALIZER");
+            ready.store(false, std::memory_order_release);
+            env->CallStaticVoidMethod(host_class, method, static_cast<jobject>(activity));
+            check(env, "KRKR_JAVA_HOST_INITIALIZATION");
+            ready.store(true, std::memory_order_release);
+            return ShinkiEmuOK;
+        }
+        if(!host_vm) {
+            host_vm = java_vm;
+            cocos2d::JniHelper::setJavaVM(host_vm);
+        }
         auto activity_class = env->GetObjectClass(static_cast<jobject>(activity));
+        check(env, "KRKR_ACTIVITY_CLASS");
+        if(!activity_class) throw std::runtime_error("KRKR_ACTIVITY_CLASS");
         auto get_context = env->GetMethodID(activity_class, "getApplicationContext", "()Landroid/content/Context;");
         check(env, "KRKR_APPLICATION_CONTEXT");
+        if(!get_context) throw std::runtime_error("KRKR_APPLICATION_CONTEXT");
         auto context = env->CallObjectMethod(static_cast<jobject>(activity), get_context);
         check(env, "KRKR_APPLICATION_CONTEXT");
         // Process-lifetime context/classloader, not a leaked Activity global ref.
@@ -117,10 +148,13 @@ extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_android_initialize(void *v
         if(!cocos2d::JniHelper::getStaticMethodInfo(initialize, "org.shinkirou.krkr.KrkrHost", "initialize", "(Landroid/app/Activity;)V"))
             throw std::runtime_error("KRKR_JAVA_HOST_INITIALIZER");
         host_class = static_cast<jclass>(env->NewGlobalRef(initialize.classID));
+        check(env, "KRKR_JAVA_HOST_CLASS");
+        if(!host_class) throw std::runtime_error("KRKR_JAVA_HOST_CLASS");
         start_method = env->GetStaticMethodID(host_class, "ownerStarted", "()V");
         drain_method = env->GetStaticMethodID(host_class, "drain", "()V");
         stop_method = env->GetStaticMethodID(host_class, "ownerStopped", "()V");
         check(env, "KRKR_JAVA_OWNER_SIGNATURES");
+        if(!start_method || !drain_method || !stop_method) throw std::runtime_error("KRKR_JAVA_OWNER_SIGNATURES");
         env->CallStaticVoidMethod(host_class, initialize.methodID, static_cast<jobject>(activity));
         env->DeleteLocalRef(initialize.classID);
         check(env, "KRKR_JAVA_HOST_INITIALIZATION");
