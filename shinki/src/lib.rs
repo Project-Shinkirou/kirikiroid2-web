@@ -22,8 +22,10 @@ pub fn set_resource_root(path: &str) -> Status {
 /// Initialize the private Cocos/SDL Java consumers before query registration.
 ///
 /// # Safety
-/// `vm` and `activity` must be the live Manager AndroidApp handles. The calling
-/// thread must be attached to `vm`; the host owns the Activity lifecycle.
+/// `vm` must remain valid for the process lifetime. `activity` is a live local
+/// AndroidApp reference for this call only; native code does not retain it.
+/// The calling thread must be attached to `vm`. The host forwards lifecycle
+/// events and releases Java helper Activity references after native teardown.
 #[cfg(all(feature = "static", target_os = "android"))]
 pub unsafe fn initialize_android(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status {
     unsafe { shinki_emu_kirikiroid2_web_android_initialize(vm, activity) }
