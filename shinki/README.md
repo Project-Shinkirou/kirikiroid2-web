@@ -8,6 +8,8 @@ The native owner schedules the original VM and Cocos/OpenGL renderer.
 Manager presents CPU leases and supplies optional typed window/modal services.
 There is no child process, socket protocol, Host PCM requirement, library reload,
 or second application event loop. Audio uses the original OpenAL playback device.
+The embedded context API uses the platform OpenAL header's device/context types,
+including Apple's opaque typedefs, shared by the native owner and wave mixer.
 
 iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
 

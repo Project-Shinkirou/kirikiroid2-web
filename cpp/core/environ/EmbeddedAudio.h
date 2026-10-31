@@ -1,8 +1,11 @@
 #pragma once
 #include <atomic>
 
-struct ALCdevice;
-struct ALCcontext;
+#ifdef __APPLE__
+#include <OpenAL/alc.h>
+#else
+#include <AL/alc.h>
+#endif
 
 // The embedding owner creates an original OpenAL context and retains it until
 // all native wave buffers/workers and this renderer wrapper have been released.
