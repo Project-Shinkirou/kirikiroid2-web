@@ -34,7 +34,9 @@ set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>")
 if(UNIX AND NOT APPLE)
-    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+    target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
 elseif(APPLE)
     set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES INSTALL_RPATH "@loader_path")
 endif()

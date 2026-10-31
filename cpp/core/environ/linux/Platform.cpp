@@ -6,6 +6,8 @@
 #include <sys/time.h>
 #include "EventIntf.h"
 #include "Platform.h"
+#include "EmbeddedSession.h"
+#include "Exception.h"
 
 void TVPGetMemoryInfo(TVPMemoryInfo &m) {
     /* to read /proc/meminfo */
@@ -139,6 +141,8 @@ std::string TVPGetCurrentLanguage() {
 
 int TVPShowSimpleMessageBox(const ttstr &text, const ttstr &caption,
                             const std::vector<ttstr> &vecButtons) {
+    if(const auto host = TVPGetEmbeddedModalHost())
+        return TVPRequestEmbeddedModal(*host, caption, text, vecButtons, nullptr);
     GtkWidget *dialog = nullptr;
     DEFER({
         if(dialog) {
@@ -229,6 +233,8 @@ static bool _TVPCreateFolders(const ttstr &folder) {
 int TVPShowSimpleInputBox(ttstr &text, const ttstr &caption,
                           const ttstr &prompt,
                           const std::vector<ttstr> &vecButtons) {
+    if(const auto host = TVPGetEmbeddedModalHost())
+        return TVPRequestEmbeddedModal(*host, caption, prompt, vecButtons, &text);
     // TODO
     spdlog::get("core")->warn("linux platform simple input box not implement");
     return 0;
@@ -277,6 +283,10 @@ tjs_uint32 TVPGetRoughTickCount32() {
 }
 
 void TVPExitApplication(int code) {
+    if(const auto host = TVPGetEmbeddedSessionHost()) {
+        host->request_exit(host->context, code);
+        throw EAbort(TJS_W("embedded session exit"));
+    }
     // clear some static data for memory leak detect
     TVPDeliverCompactEvent(TVP_COMPACT_LEVEL_MAX);
     exit(code);

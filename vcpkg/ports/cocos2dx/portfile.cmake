@@ -35,6 +35,10 @@ vcpkg_extract_source_archive(
         patch/fix-chipmunk.patch
 )
 
+# Cocos' pkg-config-only finder predates the imported Fontconfig target.
+# Use CMake's built-in finder for both shared and static Linux builds.
+file(REMOVE "${SOURCE_PATH}/cmake/Modules/FindFontconfig.cmake")
+
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/cocos2dx-config.cmake.in" DESTINATION "${SOURCE_PATH}")
 
 file(COPY_FILE "${CMAKE_CURRENT_LIST_DIR}/patch/cocos2d-x/CMakeLists.txt" "${SOURCE_PATH}/CMakeLists.txt" ONLY_IF_DIFFERENT)

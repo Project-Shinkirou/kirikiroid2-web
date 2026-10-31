@@ -1,6 +1,6 @@
 # shinki-emu-kirikiroid2-web
 
-ShinkiEMU core library `shinki_emu_kirikiroid2_web.dll` (plugin `kirikiroid2-web`).
+ShinkiEMU native core (plugin `kirikiroid2-web`), exported as a Windows DLL or Linux shared library.
 The module exports the unified C `shinki_emu_query` table.
 `shinki_emu_kirikiroid2_web_query` is its uniquely named linked entry; the Rust
 crate `shinki-emu-kirikiroid2-web` exposes that function as `query` and `QUERY`.
@@ -123,6 +123,16 @@ Use the retained original vcpkg manifest/overlays: FFmpeg 3.3.9 with Yasm,
 Cocos 3.17.2, SevenZip 26.04, UnRAR and all original plugins. Do not substitute
 SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 
+Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
+The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
+and static builds receive the `Fontconfig::Fontconfig` imported target.
+
+Linux packaging materializes the pinned Cocos FMOD runtime as `libfmod.so.6`
+beside the core, with `$ORIGIN` runtime lookup. See `licenses/FMOD.txt` for
+the exact binary/archive provenance, original Firelight attribution and
+the project owner's redistribution authorization. FMOD remains a separate
+binary SDK component; the Cocos MIT license does not relabel that binary.
+
 The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
 and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
 compatibility API is retained; it does not rely on NDK r30 carrying the
@@ -173,7 +183,7 @@ The upstream Python parser/resource generators remain build tools.
 For direct Cargo invocation, use a VS x64 developer shell and set `VCPKG_ROOT`,
 `SHINKI_EMU_VCPKG_INSTALLED` (the prepared install root),
 `SHINKI_EMU_VCPKG_TRIPLET=x64-windows`, and `BISON_EXECUTABLE`.
-The build script requires matching Windows x64 `HOST` and `TARGET`.
+The build script requires matching native Windows x64/MSVC or Linux x64/GNU `HOST` and `TARGET`.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.
 
 Cargo owns the native tree at `OUT_DIR/native`. The target writes
@@ -182,6 +192,13 @@ the test-only static library and a copied `Resources/` into its `shinki/`
 subdirectory. `OUT_DIR/core-build.json` records the real DLL, built resource
 directory and source/vcpkg licenses for xtask. No prebuilt DLL override or
 source-tree resource installation is used.
+
+The Linux entry uses `SHINKI_EMU_VCPKG_TRIPLET=x64-linux-dynamic`, system Bison,
+and CMake >=3.28. It records `libshinki_emu_kirikiroid2_web.so` and the test-only
+`.a` library. UTF-8 validation, module paths and hidden GLFW windows no longer
+depend on Win32; Linux modal requests and exit use the embedded session owner.
+Linux dependency preparation and package/load validation are not complete;
+the ShinkiEMU build inventory therefore retains its Linux block.
 
 The Rust crate links the import library and checks the C query table. Its unit
 tests also link `shinki_emu_kirikiroid2_web_lifecycle_test.lib`, built from

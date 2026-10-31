@@ -40,6 +40,8 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !bison.is_file() {
         return Err(format!("Bison executable missing: {}; run cargo xtask deps", bison.display()).into());
     }
+    println!("cargo:rerun-if-changed={}", toolchain.display());
+    println!("cargo:rerun-if-changed={}", bison.display());
     let mut definitions = vec![
         ("KRKR2_SHINKI_EMU".into(), "ON".into()),
         ("KRKR2_SHINKI_EMU_STATIC".into(), if cfg!(feature = "static") { "ON" } else { "OFF" }.into()),
@@ -88,7 +90,12 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !directory.join(library_name).is_file() {
         return Err(format!("CMake did not produce {}", directory.join(library_name).display()).into());
     }
-    if target == "x86_64-pc-windows-msvc" && !directory.join("shinki_emu_kirikiroid2_web_lifecycle_test.lib").is_file() {
+    let lifecycle = if target == "x86_64-pc-windows-msvc" {
+        "shinki_emu_kirikiroid2_web_lifecycle_test.lib"
+    } else {
+        "libshinki_emu_kirikiroid2_web_lifecycle_test.a"
+    };
+    if !directory.join(lifecycle).is_file() {
         return Err("CMake did not produce lifecycle test library".into());
     }
     let library = if android_static {
@@ -104,11 +111,20 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         source: directory.join("Resources"),
         dest: "Resources".into(),
     });
-    for name in ["LICENSE", "shinki/README.md", "cpp/plugins/layerExImage/LICENSE.TXT", "ui/cocos-studio/DroidSansFallback.LICENSE.txt", "shinki/licenses/libbpg-MIT.txt", "shinki/licenses/minizip-zlib.txt", "shinki/licenses/UnRAR.txt"] {
-        let source = root.join(name);
-        if source.is_file() {
-            manifest.licenses.push(BuildAsset { source, dest: format!("licenses/kirikiroid2-web/{}", PathBuf::from(name).file_name().unwrap().to_string_lossy()) });
-        }
+    for (source, name) in [
+        ("LICENSE", "LICENSE"),
+        ("shinki/README.md", "adapter-README.md"),
+        ("cpp/plugins/layerExImage/LICENSE.TXT", "layerExImage-LICENSE.TXT"),
+        ("ui/cocos-studio/DroidSansFallback.LICENSE.txt", "DroidSansFallback.LICENSE.txt"),
+        ("shinki/licenses/libbpg-MIT.txt", "libbpg-MIT.txt"),
+        ("shinki/licenses/minizip-zlib.txt", "minizip-zlib.txt"),
+        ("shinki/licenses/UnRAR.txt", "UnRAR.txt"),
+        ("shinki/licenses/FMOD.txt", "FMOD.txt"),
+    ] {
+        manifest.licenses.push(BuildAsset {
+            source: root.join(source),
+            dest: format!("licenses/kirikiroid2-web/{name}"),
+        });
     }
     let share = installed.join(&triplet).join("share");
     if share.is_dir() {

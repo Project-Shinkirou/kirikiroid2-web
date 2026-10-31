@@ -1,0 +1,41 @@
+FMOD Linux runtime used by Cocos2d-x
+===================================
+
+Original SDK identification (verbatim from linux-specific/fmod/include/fmod_common.h):
+FMOD Studio - Common C/C++ header file. Copyright (c), Firelight Technologies Pty, Ltd. 2004-2015.
+
+The associated header defines FMOD_VERSION 0x00010608 (SDK 1.06.08).
+The runtime's ELF SONAME is libfmod.so.6. The SDK-header version identifies the
+bundled SDK; it is not a runtime version-query result.
+
+Original binary: linux-specific/fmod/prebuilt/64-bit/libfmod.so
+SHA256: d4454884763c746c70c4ea2a9b0ca35555fef2bf174072be21924cb9a80d84a9
+Archive: https://github.com/2468785842/cocos2d-x-3rd-party-libs-bin/archive/refs/heads/v3.tar.gz
+SHA512: 44086c0eb89e3085eaf1e55b326d6b919d839f95bf56868f8eda44de80a526c8910e6587818ee2364c7bc139b032cfdb3bc35c1e2f76d6275b422c74e7bf8614
+The checked archive has no root LICENSE and no FMOD license/readme/legal text.
+Its FMOD headers retain Firelight's copyright identification. No historical
+FMOD EULA is supplied or reconstructed by this notice.
+
+Cocos2d-x 3.17.2 source is MIT licensed, with per-file copyright owners and
+third-party exceptions retained in its licenses directory. Its MIT license
+applies to that source, not to the separately supplied FMOD binary SDK.
+FMOD is identified here as a separate proprietary third-party runtime, not MIT
+and not a Linux system library.
+
+Project authorization, recorded separately from upstream terms:
+On 2026-10-31 the ShinkiEMU project owner explicitly authorized redistribution
+of this libfmod runtime and stated that the source library uses MIT. This is
+the project's publication authorization; it does not replace Firelight's
+copyright, supply an absent historical EULA, or relicense the FMOD SDK as MIT.
+
+Rebuilding and relinking:
+The corresponding ShinkiEMU sources bundle retains the exact original Cocos
+source archive, external dependency archive and vcpkg overlay recipes/patches
+used by this build. DownloadDeps.cmake verifies the external SHA512 above.
+Rebuild Cocos and the core with the supplied recipes and headers; reuse the
+original prebuilt FMOD input from that verified external archive. Packaging
+copies it as the ordinary file libfmod.so.6 and sets a relative $ORIGIN RUNPATH.
+The packaged file's hash changes when RUNPATH is written; its input hash above
+identifies the original. FMOD implementation source is not in the upstream
+archive and is not represented as supplied corresponding source. No generated
+or substitute FMOD implementation is included.

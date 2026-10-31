@@ -1,14 +1,12 @@
-#if !defined(_WIN32)
-#include <dlfcn.h>
-#include <unistd.h>
-#endif
-#include <codecvt>
-#include <locale>
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#else
+#include <dlfcn.h>
+#include <unistd.h>
 #endif
+#include "NativeText.h"
 #include "shinki_emu.h"
 #include "NativeSession.h"
 #include "NativeLifecycle.h"
@@ -73,12 +71,8 @@ std::string text(ShinkiEmuBytes value, size_t maximum = 4096) {
     require(value.len <= maximum && (!value.len || value.data), "KRKR_TEXT_BOUND");
     if(!value.len) return {};
     require(!std::memchr(value.data, 0, value.len), "KRKR_TEXT_NUL");
-    std::string result(reinterpret_cast<const char *>(value.data), value.len);
-    try {
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        converter.from_bytes(result);
-    } catch(...) { throw Failure(ShinkiEmuINVALID_ARGUMENT, "KRKR_TEXT_UTF8"); }
-    return result;
+    require(shinki::krkr::valid_utf8(reinterpret_cast<const char *>(value.data), value.len), "KRKR_TEXT_UTF8");
+    return {reinterpret_cast<const char *>(value.data), value.len};
 }
 ShinkiEmuSurfaceInfo surface(ShinkiKrkrFrameInfo f) {
     // TVPWindowLayer::UpdateDrawBuffer presents this same final texture with

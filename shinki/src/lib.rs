@@ -57,6 +57,7 @@ mod lifecycle {
 
     #[link(name = "shinki_emu_kirikiroid2_web_lifecycle_test", kind = "static")]
     unsafe extern "C" {
+        fn shinki_krkr_text_test_validate(text: *const u8, bytes: usize) -> u32;
         fn shinki_krkr_lifecycle_test_new() -> *mut c_void;
         fn shinki_krkr_lifecycle_test_free(lifecycle: *mut c_void);
         fn shinki_krkr_lifecycle_test_phase(lifecycle: *const c_void) -> u32;
@@ -116,6 +117,23 @@ mod lifecycle {
     fn frame_escapes(thrown: u32, exit_requested: bool) -> bool {
         unsafe { shinki_krkr_lifecycle_test_frame(thrown, exit_requested.into()) != 0 }
     }
+    #[test]
+    fn native_utf8_accepts_scalar_values_and_rejects_invalid_encodings() {
+        for text in ["", "native/path", "日本語", "\u{1f680}", "\u{10ffff}"] {
+            assert_ne!(unsafe { shinki_krkr_text_test_validate(text.as_ptr(), text.len()) }, 0);
+        }
+        for bytes in [
+            &[0xc0, 0xaf][..],
+            &[0xed, 0xa0, 0x80],
+            &[0xf4, 0x90, 0x80, 0x80],
+            &[0xe3, 0x81],
+            &[0x80],
+            &[0xe3, 0x28, 0x82],
+        ] {
+            assert_eq!(unsafe { shinki_krkr_text_test_validate(bytes.as_ptr(), bytes.len()) }, 0);
+        }
+    }
+
 
     #[test]
     fn game_exit_finishes_session_and_close_still_succeeds() {
