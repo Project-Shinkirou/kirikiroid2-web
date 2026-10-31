@@ -115,7 +115,10 @@ Android builds target API 28, matching the ShinkiEMU vcpkg triplets and their
 bionic iconv dependency. The adapter preserves the supplied vcpkg triplet and
 builds a shared `.so` for standalone core packages on both arm64-v8a and x86_64.
 Breakpad remains enabled. The manifest supplies Android's Oboe audio library
-required by the original sound module. Cocos UI resources are included in the package.
+required by the original sound module. Its pinned vcpkg port installs headers and
+the library without a CMake package config; the sound target locates those real
+inputs and retains Oboe's `log`/`OpenSLES` link dependencies.
+Cocos UI resources are included in the package.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,

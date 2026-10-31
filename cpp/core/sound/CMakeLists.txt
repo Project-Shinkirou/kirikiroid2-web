@@ -59,10 +59,10 @@ else()
     find_package(OpusFile CONFIG REQUIRED)
 
     if(ANDROID)
-        find_package(oboe CONFIG REQUIRED)
-        target_link_libraries(${PROJECT_NAME} PRIVATE
-            oboe::oboe
-        )
+        find_path(OBOE_INCLUDE_DIR NAMES oboe/Oboe.h REQUIRED)
+        find_library(OBOE_LIBRARY NAMES oboe REQUIRED)
+        target_include_directories(${PROJECT_NAME} PRIVATE "${OBOE_INCLUDE_DIR}")
+        target_link_libraries(${PROJECT_NAME} PRIVATE "${OBOE_LIBRARY}" log OpenSLES)
     endif()
 
     find_package(OpenAL CONFIG REQUIRED)
