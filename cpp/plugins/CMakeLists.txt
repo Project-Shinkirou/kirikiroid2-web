@@ -128,6 +128,11 @@ target_link_libraries(${PROJECT_NAME} PUBLIC krkr2core)
 
 find_package(lz4 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE lz4::lz4)
+if(APPLE)
+    set_property(TARGET ${PROJECT_NAME} PROPERTY NO_SYSTEM_FROM_IMPORTED TRUE)
+    target_include_directories(${PROJECT_NAME} BEFORE PRIVATE
+        "$<TARGET_PROPERTY:lz4::lz4,INTERFACE_INCLUDE_DIRECTORIES>")
+endif()
 
 add_subdirectory(psdfile)
 add_subdirectory(psbfile)

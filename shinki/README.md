@@ -22,6 +22,8 @@ iOS FFmpeg cross builds specify the Darwin target OS together with the existing
 architecture, device/simulator compiler target and SDK; assembly remains enabled.
 The macOS adapter is built with its installed `@loader_path` runtime search path,
 so the exact inspected build output does not retain absolute vcpkg directories.
+Apple plugin compilation prioritizes the linked LZ4 target's headers over host
+package-manager prefixes; the reference LZ4 1.7.4 compile-time guard stays intact.
 
 iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
 
