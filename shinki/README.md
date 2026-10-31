@@ -121,6 +121,10 @@ inputs and retains Oboe's `log`/`OpenSLES` link dependencies.
 Cocos UI resources are included in the package.
 The libgdiplus overlay fixes up its exported CMake configuration so dependency
 paths follow the selected install root when restored from a binary cache.
+The Android owner creates an OpenGL ES 2 EGL pbuffer on its native thread,
+uses the original Cocos renderer and reads back the game canvas for Manager.
+It owns and destroys its EGL context/surface without terminating the process's
+shared display. CoreApi supplies input; no GLFW window or Java event loop is used.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,

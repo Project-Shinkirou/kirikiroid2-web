@@ -1,24 +1,4 @@
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <winsock2.h>
-#include <windows.h>
-#else
-enum {
-    VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12, VK_PAUSE = 0x13,
-    VK_ESCAPE = 0x1b, VK_SPACE = 0x20, VK_PRIOR = 0x21, VK_NEXT = 0x22,
-    VK_END = 0x23, VK_HOME = 0x24, VK_LEFT = 0x25, VK_UP = 0x26,
-    VK_RIGHT = 0x27, VK_DOWN = 0x28, VK_INSERT = 0x2d, VK_DELETE = 0x2e,
-    VK_0 = 0x30, VK_F1 = 0x70, VK_NUMPAD0 = 0x60, VK_ADD = 0x6b,
-    VK_SUBTRACT = 0x6d, VK_MULTIPLY = 0x6a, VK_DIVIDE = 0x6f,
-    VK_OEM_MINUS = 0xbd, VK_OEM_PLUS = 0xbb, VK_OEM_COMMA = 0xbc,
-    VK_OEM_PERIOD = 0xbe, VK_OEM_2 = 0xbf, VK_OEM_1 = 0xba,
-    VK_OEM_7 = 0xde, VK_OEM_4 = 0xdb, VK_OEM_6 = 0xdd, VK_OEM_5 = 0xdc,
-    VK_OEM_3 = 0xc0, VK_LCONTROL = 0xa2, VK_RCONTROL = 0xa3,
-    VK_LSHIFT = 0xa0, VK_RSHIFT = 0xa1, VK_LMENU = 0xa4, VK_RMENU = 0xa5,
-    VK_LWIN = 0x5b
-};
-#endif
+#include "environ/vkdefine.h"
 #include "NativeInput.h"
 #include "environ/cocos2d/MainScene.h"
 #include "environ/Application.h"

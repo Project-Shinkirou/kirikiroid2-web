@@ -545,11 +545,16 @@ ShinkiEmuStatus close(ShinkiEmuSession handle, ShinkiEmuError *e) noexcept {
 ShinkiEmuStatus extension(ShinkiEmuBytes, uint32_t, const void **out) noexcept { if(out) *out = nullptr; return out ? ShinkiEmuUNSUPPORTED : ShinkiEmuINVALID_ARGUMENT; }
 const ShinkiEmuCoreApi api{{sizeof(ShinkiEmuCoreApi), ShinkiEmuABI_VERSION}, initialize, describe, probe, open, input, control, state, frame, cancel, close, extension};
 }
-extern "C" __declspec(dllexport) ShinkiEmuStatus shinki_emu_kirikiroid2_web_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
+#ifdef _WIN32
+#define SHINKI_EMU_EXPORT extern "C" __declspec(dllexport)
+#else
+#define SHINKI_EMU_EXPORT extern "C" __attribute__((visibility("default")))
+#endif
+SHINKI_EMU_EXPORT ShinkiEmuStatus shinki_emu_kirikiroid2_web_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
     if(!out) return ShinkiEmuINVALID_ARGUMENT;
     *out = version == ShinkiEmuABI_VERSION ? &api : nullptr;
     return *out ? ShinkiEmuOK : ShinkiEmuUNSUPPORTED;
 }
-extern "C" __declspec(dllexport) ShinkiEmuStatus shinki_emu_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
+SHINKI_EMU_EXPORT ShinkiEmuStatus shinki_emu_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
     return shinki_emu_kirikiroid2_web_query(version, out);
 }

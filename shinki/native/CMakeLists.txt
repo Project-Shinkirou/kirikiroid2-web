@@ -17,6 +17,9 @@ target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,LINK_LIBRARIES>")
 target_link_options(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,LINK_OPTIONS>")
+if(ANDROID)
+    target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE EGL GLESv2)
+endif()
 set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
     OUTPUT_NAME "shinki_emu_kirikiroid2_web"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
