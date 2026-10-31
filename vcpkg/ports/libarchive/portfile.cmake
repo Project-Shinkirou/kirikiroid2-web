@@ -6,6 +6,18 @@ vcpkg_from_github(
     HEAD_REF master
 )
 
+set(platform_options)
+if(VCPKG_TARGET_IS_IOS)
+    # The embedded core consumes libarchive, not standalone iOS command apps.
+    # Keep every archive reader/writer and compression dependency in the library.
+    list(APPEND platform_options
+        -DENABLE_TAR=OFF
+        -DENABLE_CPIO=OFF
+        -DENABLE_CAT=OFF
+        -DENABLE_UNZIP=OFF
+    )
+endif()
+
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS
@@ -13,6 +25,7 @@ vcpkg_cmake_configure(
         -DENABLE_TEST=OFF
         -DENABLE_LIBXML2=OFF
         -DENABLE_LIBB2=OFF
+        ${platform_options}
 )
 
 vcpkg_cmake_install()

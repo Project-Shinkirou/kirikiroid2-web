@@ -33,6 +33,10 @@ The Apple FFmpeg overlay configures before cleaning its first architecture;
 later architectures clean only an existing configured Makefile. The libarchive
 overlay declares its complete compression/XML dependency closure so cross
 builds do not discover host MacPorts libraries.
+On iOS it builds the embedded archive library without the standalone
+`bsdtar`, `bsdcpio`, `bsdcat` and `bsdunzip` command applications. Archive
+readers/writers, compression support and the core's in-process extraction
+remain enabled; desktop command-tool configuration is unchanged.
 
 ## Source provenance
 
