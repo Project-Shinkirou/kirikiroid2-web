@@ -1,10 +1,21 @@
-//! The original Kirikiroid2 VM, GL renderer and OpenAL scheduler live in the
-//! linked native module. The Manager uses only the shared C query table.
+//! The original Kirikiroid2 VM, Cocos renderer and audio scheduler live in the
+//! linked native module. Static Android builds isolate its private symbol closure.
 use shinki_emu_abi::{CoreApi, Query, Status};
 
 unsafe extern "C" {
     #[link_name = "shinki_emu_kirikiroid2_web_query"]
     pub fn query(version: u32, output: *mut *const CoreApi) -> Status;
+}
+
+#[cfg(feature = "static")]
+unsafe extern "C" {
+    fn shinki_emu_kirikiroid2_web_set_resource_root(path: *const u8, length: usize) -> Status;
+}
+
+/// Configure the APK resources extracted into the Manager's app-private tree.
+#[cfg(feature = "static")]
+pub fn set_resource_root(path: &str) -> Status {
+    unsafe { shinki_emu_kirikiroid2_web_set_resource_root(path.as_ptr(), path.len()) }
 }
 
 pub const QUERY: Query = query;

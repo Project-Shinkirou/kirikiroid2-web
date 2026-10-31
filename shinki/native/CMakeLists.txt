@@ -1,7 +1,7 @@
 if(NOT (WINDOWS OR LINUX OR APPLE OR ANDROID))
     message(FATAL_ERROR "KRKR2_SHINKI_EMU requires a desktop POSIX, Apple or Android target")
 endif()
-if(IOS)
+if(IOS OR KRKR2_SHINKI_EMU_STATIC)
     add_library(shinki_emu_kirikiroid2_web STATIC NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
 else()
     add_library(shinki_emu_kirikiroid2_web SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
@@ -11,6 +11,14 @@ target_include_directories(shinki_emu_kirikiroid2_web PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,COMPILE_DEFINITIONS>")
+if(KRKR2_SHINKI_EMU_STATIC)
+    target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE SHINKI_EMU_STATIC_CORE=1)
+    # An unbuilt shared target exposes CMake's fully resolved transitive link
+    # plan through the File API. The actual adapter and dependencies are static.
+    add_library(shinki_krkr_link_plan SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
+    target_link_libraries(shinki_krkr_link_plan PRIVATE
+        "$<TARGET_PROPERTY:krkr2,LINK_LIBRARIES>" EGL GLESv2)
+endif()
 target_compile_options(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,COMPILE_OPTIONS>")
 target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE

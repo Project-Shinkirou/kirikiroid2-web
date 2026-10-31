@@ -11,6 +11,23 @@ or second application event loop. Audio uses the original OpenAL playback device
 
 The Rust adapter uses edition 2024 and requires Rust 1.98 or newer.
 
+## Android Manager static embedding
+
+The `static` feature builds the actual VM, Cocos EGL renderer and original
+audio implementation into an archive. CMake's File API supplies the resolved
+transitive archive closure. NDK `ld.lld -r` selects that closure without allowing
+duplicate definitions; `llvm-objcopy` namespaces every defined private symbol
+and its references before the final archive enters the Manager link. SDL,
+Cocos JNI bootstrap, private Lua and FFmpeg cannot interpose on another core.
+Only the unique query and resource-root setter retain their public names.
+Android platform and C++/OpenMP runtime imports remain normal shared imports.
+
+The Manager stages `Resources` and authentic dependency notices through
+`native-static` build metadata, extracts APK assets into app-private storage,
+then sets the absolute resource directory before registering the query table.
+Standalone shared builds retain the generic dynamic query. Static embedding
+does not enable downloadable Android dynamic-core installation.
+
 ## Source provenance
 
 - Upstream repository: `fenghengzhi/kirikiroid2-web`, `web` branch
