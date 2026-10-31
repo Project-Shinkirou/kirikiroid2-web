@@ -109,6 +109,9 @@ SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
 The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
 and static builds receive the `Fontconfig::Fontconfig` imported target.
+The Linux gdiplus text renderer links Pango's Cairo and FreeType modules as
+well as its base library, so its `pango_cairo_*` and `pango_fc_*` imports
+resolve without symbols borrowed from another consumer.
 
 Linux packaging materializes the pinned Cocos FMOD runtime as `libfmod.so.6`
 beside the core, with `$ORIGIN` runtime lookup. See `licenses/FMOD.txt` for
