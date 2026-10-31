@@ -65,6 +65,9 @@ attachments; the original native registration tables and helper code remain.
 An embedded exit without an active owner throws instead of falling back to
 process termination.
 `KR2Activity` is a ContextWrapper service, not another Activity entry point.
+Its Android-ID JNI service is named `getAndroidDeviceId` to avoid colliding
+with the SDK's inherited `ContextWrapper.getDeviceId(): int`; standalone
+platform lookup keeps its original name and signature.
 Queued Java callbacks drain on the original core owner; modal requests and
 game exit use the existing embedded host rather than the old Activity/process
 exit path. Standalone-only advertisement dispatch is excluded from embedding;

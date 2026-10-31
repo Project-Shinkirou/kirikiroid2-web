@@ -40,7 +40,7 @@ public final class KR2Activity extends ContextWrapper {
         try { return GetInstance().getPackageManager().getPackageInfo(GetInstance().getPackageName(), 0).versionName; }
         catch (android.content.pm.PackageManager.NameNotFoundException error) { throw new IllegalStateException(error); }
     }
-    public static String getDeviceId() {
+    public static String getAndroidDeviceId() {
         return Settings.Secure.getString(GetInstance().getContentResolver(), Settings.Secure.ANDROID_ID);
     }
     public static String getLocaleName() {

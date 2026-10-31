@@ -182,7 +182,7 @@ pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
         ("org/tvp/kirikiri2/KR2Activity", "updateMemoryInfo", "()V", false),
         ("org/tvp/kirikiri2/KR2Activity", "getAvailMemory", "()J", false),
         ("org/tvp/kirikiri2/KR2Activity", "getUsedMemory", "()J", false),
-        ("org/tvp/kirikiri2/KR2Activity", "getDeviceId", "()Ljava/lang/String;", false),
+        ("org/tvp/kirikiri2/KR2Activity", "getAndroidDeviceId", "()Ljava/lang/String;", false),
         ("org/tvp/kirikiri2/KR2Activity", "GetInstance", "()Lorg/tvp/kirikiri2/KR2Activity;", false),
         ("org/tvp/kirikiri2/KR2Activity", "GetVersion", "()Ljava/lang/String;", false),
         ("org/tvp/kirikiri2/KR2Activity", "getStoragePath", "()[Ljava/lang/String;", false),

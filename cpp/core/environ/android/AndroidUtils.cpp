@@ -153,8 +153,13 @@ std::string TVPGetDeviceID() {
     // 	if (ret.empty())
     {
         JniMethodInfo methodInfo;
+#if defined(KRKR2_SHINKI_EMU)
+        constexpr const char *deviceIdMethod = "getAndroidDeviceId";
+#else
+        constexpr const char *deviceIdMethod = "getDeviceId";
+#endif
         if(JniHelper::getStaticMethodInfo(methodInfo, KR2ActJavaPath,
-                                          "getDeviceId",
+                                          deviceIdMethod,
                                           "()Ljava/lang/String;")) {
             auto result = (jstring)methodInfo.env->CallStaticObjectMethod(
                 methodInfo.classID, methodInfo.methodID);
