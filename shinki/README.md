@@ -162,6 +162,18 @@ SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
 The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
 and static builds receive the `Fontconfig::Fontconfig` imported target.
+The Linux gdiplus text renderer links Pango's Cairo and FreeType modules as
+well as its base library, so its `pango_cairo_*` and `pango_fc_*` imports
+resolve without symbols borrowed from another consumer.
+The Linux Cocos port disables the optional `BUILD_EDITOR_SPINE` module.
+The core/plugins have no Spine calls or registrations, and all 35 Cocos Studio
+UI descriptions and their 35 compiled resources use ordinary UI nodes, PNG
+images and TTF fonts. CocoStudio timelines and the real MotionPlayer/Emote
+implementation remain enabled. The original Cocos source archive and its
+per-file license exceptions are retained; they are not blanket MIT.
+The Linux binary's Cocos notice set excludes the unused Spine module.
+`licenses/LICENSE_spine.txt` remains intact in the full upstream source tar
+as documentation of that uncompiled component, not as a linked-runtime claim.
 
 Linux packaging materializes the pinned Cocos FMOD runtime as `libfmod.so.6`
 beside the core, with `$ORIGIN` runtime lookup. See `licenses/FMOD.txt` for
@@ -199,7 +211,7 @@ and the core imports them. libbpg selects the HEVC decoder through the public
 `TVPInitLibAVCodec()` during single-threaded startup so the decoders are
 registered before any BPG image loads. Ship every FFmpeg DLL that
 `dumpbin /dependents shinki_emu_kirikiroid2_web.dll` lists (from the vcpkg
-`installed/x64-windows/bin/` directory) in the core directory.
+`installed-x64-windows/x64-windows/bin/` directory) in the core directory.
 
 From a VS x64 developer shell in the ShinkiEMU checkout, prepare dependencies
 explicitly, then build with Ninja (avoids MSBuild's long-path file-tracking limit):
@@ -217,9 +229,10 @@ disabled; missing dependencies fail with a preparation diagnostic.
 The upstream Python parser/resource generators remain build tools.
 
 For direct Cargo invocation, use a VS x64 developer shell and set `VCPKG_ROOT`,
-`SHINKI_EMU_VCPKG_INSTALLED` (the prepared install root),
+`SHINKI_EMU_NATIVE_VCPKG_ROOT` (the directory containing `kirikiroid2-web/installed-<triplet>`),
 `SHINKI_EMU_VCPKG_TRIPLET=x64-windows`, and `BISON_EXECUTABLE`.
-The build script requires matching native Windows x64/MSVC or Linux x64/GNU `HOST` and `TARGET`.
+Windows builds require native x64/MSVC `HOST` and `TARGET`; cross-target Android
+builds require the pinned Android SDK/NDK and their own prepared triplet.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.
 
 Cargo owns the native tree at `OUT_DIR/native`. The target writes

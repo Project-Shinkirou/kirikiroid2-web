@@ -22,7 +22,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
     }
-    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir"] {
+    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir", "SHINKI_EMU_NATIVE_VCPKG_ROOT"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
     let adapter = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);
