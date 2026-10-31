@@ -99,6 +99,10 @@ Use the retained original vcpkg manifest/overlays: FFmpeg 3.3.9 with Yasm,
 Cocos 3.17.2, SevenZip 26.04, UnRAR and all original plugins. Do not substitute
 SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 
+Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
+The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
+and static builds receive the `Fontconfig::Fontconfig` imported target.
+
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
 and the core imports them. libbpg selects the HEVC decoder through the public
