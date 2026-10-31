@@ -1,8 +1,8 @@
 [package]
 name = "shinki-emu-kirikiroid2-web"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.92"
+edition = "2024"
+rust-version = "1.98"
 license = "MIT OR Apache-2.0"
 publish = false
 build = "build.rs"
@@ -14,12 +14,12 @@ crate-type = ["rlib"]
 shinki-emu-abi = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "9cd899babbb54cbc84c3e9fbddfe192c2f9200c8" }
 
 [build-dependencies]
-shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "9cd899babbb54cbc84c3e9fbddfe192c2f9200c8" }
+shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "2a5040efbcad82836bd82a667461d7db7a893a9e" }
 
 [workspace]
 
 [package.metadata.shinki]
 upstream = "https://github.com/fenghengzhi/kirikiroid2-web"
-upstream_revision = "7105b50822097d11b7b1f5894bf541509fd51350"
+upstream_revision = "2028cbccaa91498bd36f270d349ae711d0e8fed3"
 hosted_fork = "https://github.com/Project-Shinkirou/kirikiroid2-web"
 hosted_fork_branch = "shinki"

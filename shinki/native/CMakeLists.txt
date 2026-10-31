@@ -1,7 +1,11 @@
-if(NOT (WINDOWS AND MSVC) AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    message(FATAL_ERROR "KRKR2_SHINKI_EMU requires native Windows x64/MSVC or Linux x64/GNU")
+if(NOT (WINDOWS OR LINUX OR APPLE OR ANDROID))
+    message(FATAL_ERROR "KRKR2_SHINKI_EMU requires a desktop POSIX, Apple or Android target")
 endif()
-add_library(shinki_emu_kirikiroid2_web SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
+if(IOS)
+    add_library(shinki_emu_kirikiroid2_web STATIC NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
+else()
+    add_library(shinki_emu_kirikiroid2_web SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
+endif()
 target_include_directories(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,INCLUDE_DIRECTORIES>"
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -13,18 +17,25 @@ target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,LINK_LIBRARIES>")
 target_link_options(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,LINK_OPTIONS>")
+if(ANDROID)
+    target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE EGL GLESv2)
+endif()
 set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
     OUTPUT_NAME "shinki_emu_kirikiroid2_web"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>")
-if(WINDOWS)
-    cocos_copy_target_dll(shinki_emu_kirikiroid2_web)
-else()
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>")
+if(UNIX AND NOT APPLE)
     target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE ${CMAKE_DL_LIBS})
     set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
         BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
+elseif(APPLE)
+    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES INSTALL_RPATH "@loader_path")
 endif()
+if(WINDOWS)
+    cocos_copy_target_dll(shinki_emu_kirikiroid2_web)
+endif()
+set(GAME_RES_FOLDER "${PROJECT_SOURCE_DIR}/ui/cocos-studio")
 add_custom_target(shinki_emu_kirikiroid2_web_resources
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${GAME_RES_FOLDER}" "$<TARGET_FILE_DIR:shinki_emu_kirikiroid2_web>/Resources"

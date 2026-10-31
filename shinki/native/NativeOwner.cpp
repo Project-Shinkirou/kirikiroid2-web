@@ -1,6 +1,6 @@
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -395,21 +395,26 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
             auto path = std::filesystem::absolute(std::filesystem::u8path(text(r->game_path)));
             if(!std::filesystem::is_directory(path)) path = path.parent_path();
             s->game = path.u8string();
-#ifdef _WIN32
+#if defined(_WIN32)
             HMODULE module = nullptr; wchar_t filename[32768];
             require(GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                 reinterpret_cast<LPCWSTR>(&open), &module), "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
             const auto n = GetModuleFileNameW(module, filename, static_cast<DWORD>(std::size(filename)));
             require(n && n < std::size(filename), "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
-            s->resources = (std::filesystem::path(filename).parent_path() / "Resources").u8string();
-            const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(++temporary_id));
+            const auto module_path = std::filesystem::path(filename);
 #else
-            Dl_info module{};
-            static int anchor;
-            require(dladdr(&anchor, &module) && module.dli_fname, "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
-            s->resources = (std::filesystem::path(module.dli_fname).parent_path() / "Resources").u8string();
-            const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(getpid()) + "-" + std::to_string(++temporary_id));
+            Dl_info info{};
+            require(dladdr(reinterpret_cast<void *>(&open), &info) && info.dli_fname, "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
+            const auto module_path = std::filesystem::u8path(info.dli_fname);
 #endif
+            s->resources = (module_path.parent_path() / "Resources").u8string();
+            const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(
+#if defined(_WIN32)
+                GetCurrentProcessId()
+#else
+                getpid()
+#endif
+                ) + "-" + std::to_string(++temporary_id));
             require(std::filesystem::create_directory(temporary), "KRKR_WRITABLE_CREATE", ShinkiEmuCORE_ERROR);
             s->writable = temporary.u8string();
             s->worker = std::thread([p = s.get()] { p->run(); });

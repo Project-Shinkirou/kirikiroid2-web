@@ -8,7 +8,7 @@ index 79a0c96270..e6b1aefb9b 100644
  if(ANDROID AND WITH_CPUFEATURES)
 -  add_subdirectory(3rdparty/cpufeatures)
 +  find_package(CpuFeaturesNdkCompat CONFIG REQUIRED)
-+  set(CPUFEATURES_INCLUDE_DIRS "")
++  find_path(CPUFEATURES_INCLUDE_DIRS NAMES cpu-features.h PATH_SUFFIXES ndk_compat REQUIRED)
 +  set(CPUFEATURES_LIBRARIES CpuFeatures::ndk_compat)
    set(HAVE_CPUFEATURES 1)
  endif()

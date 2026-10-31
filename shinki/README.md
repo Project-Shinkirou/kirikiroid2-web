@@ -9,10 +9,13 @@ Manager presents CPU leases and supplies optional typed window/modal services.
 There is no child process, socket protocol, Host PCM requirement, library reload,
 or second application event loop. Audio uses the original OpenAL playback device.
 
+The Rust adapter uses edition 2024 and requires Rust 1.98 or newer.
+
 ## Source provenance
 
-- Upstream repository: `fenghengzhi/kirikiroid2-web`, base
-  `7105b50822097d11b7b1f5894bf541509fd51350`.
+- Upstream repository: `fenghengzhi/kirikiroid2-web`, `web` branch
+  `2028cbccaa91498bd36f270d349ae711d0e8fed3`, merged over the retained
+  native repair and ShinkiEMU integration history.
 - Hosted fork: `https://github.com/Project-Shinkirou/kirikiroid2-web`, branch `shinki`.
   The adaptation contains this `shinki/` directory (C++ adapter under `native/`,
   Rust query binding and lifecycle tests here),
@@ -20,6 +23,10 @@ or second application event loop. Audio uses the original OpenAL playback device
   the reusable-session lifecycle and path-cache fixes, the WindowEx overlay
   owner initialization, and FFmpeg 3.3.9 dynamic linking (libbpg uses the
   public HEVC decoder lookup; the Windows FFmpeg port is no longer static-only).
+  AlphaMovie uses the equivalent MSVC byte-swap intrinsic on Windows; other
+  compilers retain upstream's builtin. Its JPEG coefficient-order table is
+  local, preserving the decoder's saturation tail without importing libjpeg's
+  private data symbol from a DLL.
 - `layerExImage`: `23a9214f9b6e9bc3267b964707efa269c041b919`, compiled unchanged.
 - `native/include/shinki_emu.h` is the generated shared header of
   `shinki-emu-abi` at ShinkiEMU `cb8d9dd22d7d0ab129085b324c94d6dc81fa19e3`
@@ -102,8 +109,35 @@ SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
 The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
 and static builds receive the `Fontconfig::Fontconfig` imported target.
+
+Linux packaging materializes the pinned Cocos FMOD runtime as `libfmod.so.6`
+beside the core, with `$ORIGIN` runtime lookup. See `licenses/FMOD.txt` for
+the exact binary/archive provenance, original Firelight attribution and
+the project owner's redistribution authorization. FMOD remains a separate
+binary SDK component; the Cocos MIT license does not relabel that binary.
+
+The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
+and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
+compatibility API is retained; it does not rely on NDK r30 carrying the
+removed `sources/android/cpufeatures` headers.
+
+Android builds target API 28, matching the ShinkiEMU vcpkg triplets and their
+bionic iconv dependency. The adapter preserves the supplied vcpkg triplet and
+builds a shared `.so` for standalone core packages on both arm64-v8a and x86_64.
+Breakpad remains enabled. The manifest supplies Android's Oboe audio library
+required by the original sound module. Its pinned vcpkg port installs headers and
+the library without a CMake package config; the sound target locates those real
+inputs and retains Oboe's `log`/`OpenSLES` link dependencies.
+Cocos UI resources are included in the package.
 The libgdiplus overlay fixes up its exported CMake configuration so dependency
 paths follow the selected install root when restored from a binary cache.
+The Android owner creates an OpenGL ES 2 EGL pbuffer on its native thread,
+uses the original Cocos renderer and reads back the game canvas for Manager.
+It owns and destroys its EGL context/surface without terminating the process's
+shared display. CoreApi supplies input; no GLFW window or Java event loop is used.
+Its Cocos Android support archive is linked normally, preserving the required
+support objects without forcing the separate Java-Activity bootstrap and its
+competing `JNI_OnLoad` into the CoreApi-owned module. SDL keeps its own loader.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,

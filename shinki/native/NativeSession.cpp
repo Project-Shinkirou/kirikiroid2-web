@@ -1,4 +1,10 @@
 #include "NativeText.h"
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <winsock2.h>
+#include <windows.h>
+#endif
 #include "NativeSession.h"
 #include "HostModal.h"
 #include "NativeLifecycle.h"
@@ -15,13 +21,19 @@
 #include "visual/impl/WindowImpl.h"
 #include "platform/CCApplication.h"
 #include "platform/CCFileUtils.h"
+#if defined(__ANDROID__)
+#include "platform/CCGLView.h"
+#include <EGL/egl.h>
+extern void initExtensions();
+#else
 #include "platform/desktop/CCGLViewImpl-desktop.h"
+#include <GLFW/glfw3.h>
+#endif
 #include "base/CCDirector.h"
 #include "base/CCAutoreleasePool.h"
 #include "base/CCScheduler.h"
 extern void TVPReleaseAudioRenderer();
 #include "tjs2/tjsExecutionControl.h"
-#include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <chrono>
@@ -31,6 +43,64 @@ extern void TVPReleaseAudioRenderer();
 #include <stdexcept>
 
 namespace shinki::krkr {
+#if defined(__ANDROID__)
+class EmbeddedView final : public cocos2d::GLView {
+    EGLDisplay display_ = EGL_NO_DISPLAY;
+    EGLSurface surface_ = EGL_NO_SURFACE;
+    EGLContext context_ = EGL_NO_CONTEXT;
+public:
+    static EmbeddedView *create() {
+        auto view = std::unique_ptr<EmbeddedView>(new EmbeddedView());
+        view->display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        if(view->display_ == EGL_NO_DISPLAY || !eglInitialize(view->display_, nullptr, nullptr) ||
+           !eglBindAPI(EGL_OPENGL_ES_API))
+            throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_EGL_DISPLAY");
+        const auto attrs = getGLContextAttrs();
+        const EGLint config_attrs[] = {
+            EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_RED_SIZE, attrs.redBits, EGL_GREEN_SIZE, attrs.greenBits,
+            EGL_BLUE_SIZE, attrs.blueBits, EGL_ALPHA_SIZE, attrs.alphaBits,
+            EGL_DEPTH_SIZE, attrs.depthBits, EGL_STENCIL_SIZE, attrs.stencilBits,
+            EGL_SAMPLE_BUFFERS, attrs.multisamplingCount > 0 ? 1 : 0,
+            EGL_SAMPLES, attrs.multisamplingCount, EGL_NONE
+        };
+        EGLConfig config{};
+        EGLint count = 0;
+        if(!eglChooseConfig(view->display_, config_attrs, &config, 1, &count) || count != 1)
+            throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_EGL_CONFIG");
+        const EGLint surface_attrs[] = {EGL_WIDTH, 960, EGL_HEIGHT, 640, EGL_NONE};
+        view->surface_ = eglCreatePbufferSurface(view->display_, config, surface_attrs);
+        const EGLint context_attrs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+        view->context_ = eglCreateContext(view->display_, config, EGL_NO_CONTEXT, context_attrs);
+        if(view->surface_ == EGL_NO_SURFACE || view->context_ == EGL_NO_CONTEXT ||
+           !eglMakeCurrent(view->display_, view->surface_, view->surface_, view->context_))
+            throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_CONTEXT");
+        initExtensions();
+        view->setViewName("Shinki KrKr context");
+        view->setFrameSize(960, 640);
+        view->autorelease();
+        return view.release();
+    }
+    ~EmbeddedView() override {
+        if(display_ != EGL_NO_DISPLAY) {
+            if(eglGetCurrentContext() == context_ && context_ != EGL_NO_CONTEXT)
+                eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            if(context_ != EGL_NO_CONTEXT) eglDestroyContext(display_, context_);
+            if(surface_ != EGL_NO_SURFACE) eglDestroySurface(display_, surface_);
+            // The process may share this display with Manager. Only this
+            // session's context and surface are owned here; never terminate it.
+        }
+    }
+    void end() override { release(); }
+    bool isOpenGLReady() override {
+        return context_ != EGL_NO_CONTEXT && eglGetCurrentContext() == context_;
+    }
+    void swapBuffers() override { glFlush(); }
+    void setIMEKeyboardState(bool open) override {
+        if(open) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_IME_UNSUPPORTED");
+    }
+};
+#else
 class EmbeddedView final : public cocos2d::GLViewImpl {
 public:
     static EmbeddedView *create() {
@@ -53,6 +123,7 @@ public:
         glFlush();
     }
 };
+#endif
 static std::string path_text(const std::uint8_t *data, std::uint64_t bytes) {
     if(!data || !bytes || bytes > 4096 || std::memchr(data, 0, bytes))
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_BOUND");
@@ -63,9 +134,7 @@ static std::string path_text(const std::uint8_t *data, std::uint64_t bytes) {
     const auto path = std::filesystem::u8path(result);
     if(!path.is_absolute() || !std::filesystem::is_directory(path))
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_DIRECTORY");
-    std::replace(result.begin(), result.end(), '\\', '/');
-    if(result.back() != '/') result += '/';
-    return result;
+    return path.u8string() + (path.u8string().back() == '/' ? "" : "/");
 }
 NativeSession::NativeSession(const ShinkiKrkrBootOptions &options)
     : callbacks_(options.callbacks),
@@ -161,9 +230,16 @@ void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
     auto director = cocos2d::Director::getInstance();
     director->setDisplayStats(false);
     auto view = director->getOpenGLView();
+#if defined(_WIN32)
+    if(!view || !view->getWin32Window()) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_WINDOW");
+    ShowWindow(view->getWin32Window(), SW_HIDE);
+#else
     if(!view) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_WINDOW");
+#endif
     // The context is created invisible; its present endpoint only flushes GL.
+#if !defined(__ANDROID__)
     glfwSwapInterval(0);
+#endif
     if(options.window.focused) ::Application->OnActivate();
     else ::Application->OnDeactivate();
     auto scene = TVPMainScene::GetInstance();

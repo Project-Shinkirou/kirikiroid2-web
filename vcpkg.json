@@ -60,6 +60,10 @@
     "lz4",
     "oniguruma",
     {
+      "name": "oboe",
+      "platform": "android"
+    },
+    {
       "name": "openal-soft",
       "platform": "!emscripten"
     },
@@ -98,5 +102,10 @@
     },
     "zstd"
   ],
-  "overrides": []
+  "overrides": [
+    {
+      "name": "lz4",
+      "version": "1.7.4"
+    }
+  ]
 }
