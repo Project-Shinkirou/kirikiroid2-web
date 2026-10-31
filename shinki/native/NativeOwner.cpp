@@ -416,7 +416,12 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
 #if !defined(SHINKI_EMU_STATIC_CORE)
             s->resources = (module_path.parent_path() / "Resources").u8string();
 #endif
-            const auto temporary = std::filesystem::temp_directory_path() / ("shinki-krkr-" + std::to_string(
+#if defined(SHINKI_EMU_STATIC_CORE)
+            const auto temporary_root = std::filesystem::u8path(static_resources).parent_path();
+#else
+            const auto temporary_root = std::filesystem::temp_directory_path();
+#endif
+            const auto temporary = temporary_root / ("shinki-krkr-" + std::to_string(
 #if defined(_WIN32)
                 GetCurrentProcessId()
 #else
