@@ -23,6 +23,9 @@ architecture, device/simulator compiler target and SDK; assembly remains enabled
 Apple FFmpeg pkg-config searches only the selected target installation, including
 its matching debug/release libraries. Host Homebrew/MacPorts XCB dependencies
 cannot leak into the core; native Apple video/audio and codec support remain.
+The shared OpenGL header includes Apple's `TargetConditionals.h` itself and
+selects OpenGLES for iOS or OpenGL for macOS. Motion's stencil renderer does not
+depend on another header accidentally defining the platform macros first.
 The macOS adapter is built with its installed `@loader_path` runtime search path,
 so the exact inspected build output does not retain absolute vcpkg directories.
 Apple plugin compilation prioritizes the linked LZ4 target's headers over host
