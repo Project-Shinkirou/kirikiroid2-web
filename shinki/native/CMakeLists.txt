@@ -34,7 +34,8 @@ set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
 if(UNIX AND NOT APPLE)
     set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
 elseif(APPLE)
-    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES INSTALL_RPATH "@loader_path")
+    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@loader_path")
 endif()
 if(WINDOWS)
     cocos_copy_target_dll(shinki_emu_kirikiroid2_web)
