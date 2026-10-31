@@ -16,6 +16,7 @@ fn capture(command: &mut Command) -> Result<String> {
 }
 fn json(path: &Path) -> Result<Value> { Ok(serde_json::from_slice(&fs::read(path)?)?) }
 
+enum LinkInput { Archive(usize), Whole(bool) }
 pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     let reply = native.join(".cmake/api/v1/reply");
     let mut indices = fs::read_dir(&reply)?.collect::<std::io::Result<Vec<_>>>()?;
@@ -27,15 +28,25 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     let plan = targets.iter().find(|target| target["name"] == "shinki_krkr_link_plan").ok_or("Krkr link plan missing")?;
     let plan = json(&reply.join(plan["jsonFile"].as_str().ok_or("link plan JSON missing")?))?;
     let mut archives = vec![adapter.to_owned()];
+    let mut inputs = vec![LinkInput::Archive(0)];
     let mut system = BTreeSet::new();
     for fragment in plan["link"]["commandFragments"].as_array().ok_or("CMake link fragments missing")? {
-        if fragment["role"] != "libraries" { continue; }
         for token in shlex::split(fragment["fragment"].as_str().ok_or("link fragment missing")?).ok_or("invalid CMake link fragment")? {
-            if token.ends_with(".a") {
+            if matches!(token.as_str(), "-Wl,--whole-archive" | "--whole-archive") {
+                inputs.push(LinkInput::Whole(true));
+            } else if matches!(token.as_str(), "-Wl,--no-whole-archive" | "--no-whole-archive") {
+                inputs.push(LinkInput::Whole(false));
+            } else if token.ends_with(".a") {
                 let path = PathBuf::from(&token);
                 let path = if path.is_absolute() { path } else { native.join(path) };
                 if !path.is_file() { return Err(format!("static dependency missing: {}", path.display()).into()); }
-                if !archives.contains(&path) { archives.push(path); }
+                let index = if let Some(index) = archives.iter().position(|archive| archive == &path) {
+                    index
+                } else {
+                    archives.push(path);
+                    archives.len() - 1
+                };
+                inputs.push(LinkInput::Archive(index));
             } else if let Some(name) = token.strip_prefix("-l") {
                 system.insert(name.to_owned());
             } else if token.ends_with(".so") {
@@ -66,7 +77,13 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     let object = native.join("shinki/krkr-closure.o");
     let response = native.join("shinki/krkr-closure.rsp");
     let mut args = vec!["-r".to_owned(), "--start-group".to_owned()];
-    args.extend(archives.iter().map(|path| format!("\"{}\"", path.to_string_lossy().replace('\\', "/"))));
+    for input in inputs {
+        args.push(match input {
+            LinkInput::Archive(index) => format!("\"{}\"", archives[index].to_string_lossy().replace('\\', "/")),
+            LinkInput::Whole(true) => "--whole-archive".into(),
+            LinkInput::Whole(false) => "--no-whole-archive".into(),
+        });
+    }
     args.push("--end-group".into());
     for export in EXPORTS { args.push(format!("--undefined={export}")); }
     args.extend(["-o".into(), format!("\"{}\"", object.to_string_lossy().replace('\\', "/"))]);

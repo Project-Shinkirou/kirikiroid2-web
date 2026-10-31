@@ -19,6 +19,8 @@ transitive archive closure. NDK `ld.lld -r` selects that closure without allowin
 duplicate definitions; `llvm-objcopy` namespaces every defined private symbol
 and its references before the final archive enters the Manager link. SDL,
 Cocos JNI bootstrap, private Lua and FFmpeg cannot interpose on another core.
+Archive selection preserves CMake's whole-archive scopes so static NCB plugin
+registration objects are not discarded just because they have no named caller.
 Only the unique query, resource-root setter and Android host initializer retain
 their public names.
 Android platform and C++/OpenMP runtime imports remain normal shared imports.
