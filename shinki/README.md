@@ -20,6 +20,9 @@ The selected macOS implementation routes embedded exit and modal/input requests
 through the existing session/typed Host tables; standalone input uses AppKit.
 iOS FFmpeg cross builds specify the Darwin target OS together with the existing
 architecture, device/simulator compiler target and SDK; assembly remains enabled.
+Apple FFmpeg pkg-config searches only the selected target installation, including
+its matching debug/release libraries. Host Homebrew/MacPorts XCB dependencies
+cannot leak into the core; native Apple video/audio and codec support remain.
 The macOS adapter is built with its installed `@loader_path` runtime search path,
 so the exact inspected build output does not retain absolute vcpkg directories.
 Apple plugin compilation prioritizes the linked LZ4 target's headers over host
