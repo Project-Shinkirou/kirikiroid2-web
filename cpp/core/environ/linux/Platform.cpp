@@ -7,7 +7,7 @@
 #include "EventIntf.h"
 #include "Platform.h"
 #include "EmbeddedSession.h"
-#include "utils/Exception.h"
+#include "Exception.h"
 
 void TVPGetMemoryInfo(TVPMemoryInfo &m) {
     /* to read /proc/meminfo */
