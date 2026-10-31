@@ -343,8 +343,9 @@ target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE}
 )
 
 if(APPLE AND NOT EMSCRIPTEN)
-    target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE}
-        -Wl,-force_load,$<TARGET_FILE:krkr2plugins_ncbind>
+    target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE} krkr2plugins_ncbind)
+    target_link_options(${PROJECT_NAME} ${KRKR2_TARGET_LINK_USAGE}
+        "-Wl,-force_load,$<TARGET_FILE:krkr2plugins_ncbind>"
     )
 elseif(MSVC)
     target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE} krkr2plugins_ncbind)
