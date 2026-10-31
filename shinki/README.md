@@ -117,6 +117,34 @@ The cocos2dx overlay accepts iOS triplets and maps CMake's `iOS` system name
 to the retained upstream UIKit/OpenGLES platform sources, rather than the
 macOS desktop implementation. Device and both simulator triples use their
 target SDK through the ShinkiEMU Apple toolchain.
+On Apple x86/x64 targets, FFmpeg selects the vcpkg-host Yasm executable
+explicitly, retaining assembly support instead of relying on NASM 3's
+compatibility with the original FFmpeg 3.3.9 configure probe.
+Apple adapter builds consume the original Cocos/core/plugin closure through
+a CMake interface target; they do not require the standalone app entrypoint.
+
+The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
+and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
+compatibility API is retained; it does not rely on NDK r30 carrying the
+removed `sources/android/cpufeatures` headers.
+
+Android builds target API 28, matching the ShinkiEMU vcpkg triplets and their
+bionic iconv dependency. The adapter preserves the supplied vcpkg triplet and
+builds a shared `.so` for standalone core packages on both arm64-v8a and x86_64.
+Breakpad remains enabled. The manifest supplies Android's Oboe audio library
+required by the original sound module. Its pinned vcpkg port installs headers and
+the library without a CMake package config; the sound target locates those real
+inputs and retains Oboe's `log`/`OpenSLES` link dependencies.
+Cocos UI resources are included in the package.
+The libgdiplus overlay fixes up its exported CMake configuration so dependency
+paths follow the selected install root when restored from a binary cache.
+The Android owner creates an OpenGL ES 2 EGL pbuffer on its native thread,
+uses the original Cocos renderer and reads back the game canvas for Manager.
+It owns and destroys its EGL context/surface without terminating the process's
+shared display. CoreApi supplies input; no GLFW window or Java event loop is used.
+Its Cocos Android support archive is linked normally, preserving the required
+support objects without forcing the separate Java-Activity bootstrap and its
+competing `JNI_OnLoad` into the CoreApi-owned module. SDL keeps its own loader.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,

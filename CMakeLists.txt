@@ -40,6 +40,7 @@ set(APP_NAME krkr2)
 
 project(${APP_NAME})
 
+option(KRKR2_SHINKI_EMU "build the ShinkiEMU core library" OFF)
 option(ENABLE_TESTS "enable tests execute build(exclude android)" ON)
 option(BUILD_TOOLS "build tools execute build(exclude android ios)" ON)
 option(KRKR2_WEB_DEBUG_ENABLE_ASAN "enable AddressSanitizer in Web Debug builds" ON)
@@ -84,7 +85,14 @@ elseif(WEB)
     add_link_options($<$<AND:$<CONFIG:Debug>,$<BOOL:${KRKR2_WEB_DEBUG_ENABLE_ASAN}>>:-fsanitize=address>)
 endif()
 
-if(ANDROID)
+set(KRKR2_TARGET_USAGE PUBLIC)
+set(KRKR2_TARGET_LINK_USAGE PRIVATE)
+if(KRKR2_SHINKI_EMU AND APPLE)
+    # Propagate the real core/plugin closure without an unused app entrypoint.
+    add_library(${PROJECT_NAME} INTERFACE)
+    set(KRKR2_TARGET_USAGE INTERFACE)
+    set(KRKR2_TARGET_LINK_USAGE INTERFACE)
+elseif(ANDROID)
     add_library(${PROJECT_NAME} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/platforms/android/cpp/krkr2_android.cpp)
     find_package(unofficial-breakpad CONFIG REQUIRED)
     target_link_libraries(${PROJECT_NAME} PUBLIC unofficial::breakpad::libbreakpad_client)
@@ -315,7 +323,7 @@ elseif(MACOS)
     )
 endif()
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${KRKR2CORE_PATH}/environ/cocos2d)
+target_include_directories(${PROJECT_NAME} ${KRKR2_TARGET_USAGE} ${KRKR2CORE_PATH}/environ/cocos2d)
 
 # external lib
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cpp/external)
@@ -330,27 +338,27 @@ if(WEB)
     endif()
 endif()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC
+target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE}
     krkr2plugin krkr2core
 )
 
 if(APPLE AND NOT EMSCRIPTEN)
-    target_link_libraries(${PROJECT_NAME} PUBLIC
+    target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE}
         -Wl,-force_load,$<TARGET_FILE:krkr2plugins_ncbind>
     )
 elseif(MSVC)
-    target_link_libraries(${PROJECT_NAME} PUBLIC krkr2plugins_ncbind)
-    target_link_options(${PROJECT_NAME} PRIVATE
+    target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE} krkr2plugins_ncbind)
+    target_link_options(${PROJECT_NAME} ${KRKR2_TARGET_LINK_USAGE}
         "/WHOLEARCHIVE:$<TARGET_FILE:krkr2plugins_ncbind>"
     )
 else()
-    target_link_libraries(${PROJECT_NAME} PUBLIC
+    target_link_libraries(${PROJECT_NAME} ${KRKR2_TARGET_USAGE}
         -Wl,--whole-archive krkr2plugins_ncbind -Wl,--no-whole-archive
     )
 endif()
 
 ## resources
-if(NOT ANDROID AND NOT WEB)
+if(NOT (KRKR2_SHINKI_EMU AND APPLE) AND NOT ANDROID AND NOT WEB)
     include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CocosBuildHelpers.cmake")
 
     set(GAME_RES_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/ui/cocos-studio")
@@ -396,7 +404,6 @@ if(BUILD_TOOLS AND NOT (IOS OR ANDROID OR WEB))
 endif()
 
 # ShinkiEMU C ABI v3 adapter DLL; the standalone executable is unchanged.
-option(KRKR2_SHINKI_EMU "build the ShinkiEMU core library (Windows x64/MSVC)" OFF)
 if(KRKR2_SHINKI_EMU)
     add_subdirectory(shinki/native "${CMAKE_CURRENT_BINARY_DIR}/shinki")
 endif()

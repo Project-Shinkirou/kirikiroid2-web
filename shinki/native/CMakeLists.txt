@@ -1,15 +1,19 @@
 if(NOT (WINDOWS OR LINUX OR APPLE OR ANDROID))
     message(FATAL_ERROR "KRKR2_SHINKI_EMU requires a desktop POSIX, Apple or Android target")
 endif()
-if(IOS OR ANDROID)
+if(IOS)
     add_library(shinki_emu_kirikiroid2_web STATIC NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
     target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE SHINKI_EMU_STATIC_CORE=1)
 else()
     add_library(shinki_emu_kirikiroid2_web SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
 endif()
 target_include_directories(shinki_emu_kirikiroid2_web PRIVATE
-    "$<TARGET_PROPERTY:krkr2,INCLUDE_DIRECTORIES>"
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
+if(APPLE)
+    target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE krkr2)
+else()
+target_include_directories(shinki_emu_kirikiroid2_web PRIVATE
+    "$<TARGET_PROPERTY:krkr2,INCLUDE_DIRECTORIES>")
 target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,COMPILE_DEFINITIONS>")
 target_compile_options(shinki_emu_kirikiroid2_web PRIVATE
@@ -18,6 +22,10 @@ target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,LINK_LIBRARIES>")
 target_link_options(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,LINK_OPTIONS>")
+endif()
+if(ANDROID)
+    target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE EGL GLESv2)
+endif()
 set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
     OUTPUT_NAME "shinki_emu_kirikiroid2_web"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
@@ -31,6 +39,7 @@ endif()
 if(WINDOWS)
     cocos_copy_target_dll(shinki_emu_kirikiroid2_web)
 endif()
+set(GAME_RES_FOLDER "${PROJECT_SOURCE_DIR}/ui/cocos-studio")
 add_custom_target(shinki_emu_kirikiroid2_web_resources
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${GAME_RES_FOLDER}" "$<TARGET_FILE_DIR:shinki_emu_kirikiroid2_web>/Resources"

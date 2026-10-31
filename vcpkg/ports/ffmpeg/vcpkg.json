@@ -10,6 +10,12 @@
   "license": null,
   "dependencies": [
     {
+      "name": "yasm",
+      "host": true,
+      "default-features": false,
+      "features": ["tools"]
+    },
+    {
       "name": "vcpkg-cmake-get-vars",
       "host": true
     },

@@ -24,7 +24,7 @@ endif()
 
 set(OPTIONS "--enable-pic --disable-doc --enable-debug=3 --enable-runtime-cpudetect")
 
-if(VCPKG_HOST_IS_WINDOWS AND
+if((VCPKG_HOST_IS_WINDOWS OR VCPKG_HOST_IS_OSX) AND
    (VCPKG_TARGET_ARCHITECTURE STREQUAL "x86" OR VCPKG_TARGET_ARCHITECTURE STREQUAL "x64"))
     find_program(FFMPEG_YASM NAMES yasm
         PATHS "${CURRENT_HOST_INSTALLED_DIR}/tools/yasm" "${CURRENT_INSTALLED_DIR}/tools/yasm"
