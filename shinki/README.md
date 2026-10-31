@@ -112,6 +112,15 @@ and static builds receive the `Fontconfig::Fontconfig` imported target.
 The Linux gdiplus text renderer links Pango's Cairo and FreeType modules as
 well as its base library, so its `pango_cairo_*` and `pango_fc_*` imports
 resolve without symbols borrowed from another consumer.
+The Linux Cocos port disables the optional `BUILD_EDITOR_SPINE` module.
+The core/plugins have no Spine calls or registrations, and all 35 Cocos Studio
+UI descriptions and their 35 compiled resources use ordinary UI nodes, PNG
+images and TTF fonts. CocoStudio timelines and the real MotionPlayer/Emote
+implementation remain enabled. The original Cocos source archive and its
+per-file license exceptions are retained; they are not blanket MIT.
+The Linux binary's Cocos notice set excludes the unused Spine module.
+`licenses/LICENSE_spine.txt` remains intact in the full upstream source tar
+as documentation of that uncompiled component, not as a linked-runtime claim.
 
 Linux packaging materializes the pinned Cocos FMOD runtime as `libfmod.so.6`
 beside the core, with `$ORIGIN` runtime lookup. See `licenses/FMOD.txt` for
