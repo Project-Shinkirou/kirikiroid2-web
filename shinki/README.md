@@ -102,6 +102,8 @@ SDK FFmpeg, skip layerExImage, or use the Artemis renderer.
 Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
 The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
 and static builds receive the `Fontconfig::Fontconfig` imported target.
+The libgdiplus overlay fixes up its exported CMake configuration so dependency
+paths follow the selected install root when restored from a binary cache.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
