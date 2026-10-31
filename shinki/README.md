@@ -18,6 +18,8 @@ macOS platform sources are selected from CMake's target system name, including
 adapter builds that do not use the standalone application's configure preset.
 The selected macOS implementation routes embedded exit and modal/input requests
 through the existing session/typed Host tables; standalone input uses AppKit.
+iOS FFmpeg cross builds specify the Darwin target OS together with the existing
+architecture, device/simulator compiler target and SDK; assembly remains enabled.
 
 iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
 
