@@ -17,7 +17,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
     }
-    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir"] {
+    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir", "SHINKI_EMU_NATIVE_VCPKG_ROOT"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
     let adapter = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);
@@ -26,9 +26,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         "VCPKG_ROOT is missing; run cargo xtask deps for kirikiroid2-web",
     )?);
     let toolchain = vcpkg.join("scripts/buildsystems/vcpkg.cmake");
-    let installed = PathBuf::from(env::var_os("SHINKI_EMU_VCPKG_INSTALLED").ok_or(
-        "SHINKI_EMU_VCPKG_INSTALLED is missing; run cargo xtask deps for kirikiroid2-web",
-    )?);
+    let installed = PathBuf::from(env::var_os("SHINKI_EMU_NATIVE_VCPKG_ROOT").ok_or(
+        "SHINKI_EMU_NATIVE_VCPKG_ROOT is missing; run cargo xtask deps for kirikiroid2-web",
+    )?).join("kirikiroid2-web/installed");
     let triplet = env::var("SHINKI_EMU_VCPKG_TRIPLET")?;
     if !toolchain.is_file() || !installed.join(&triplet).join("lib").is_dir() {
         return Err("KiriKiri requires the prepared vcpkg installation; run cargo xtask deps".into());
@@ -47,6 +47,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         ("BUILD_TOOLS".into(), "OFF".into()),
         ("KRKR2_USE_STUB_SPDLOG".into(), "OFF".into()),
         ("CMAKE_TOOLCHAIN_FILE".into(), toolchain.to_string_lossy().replace('\\', "/")),
+        ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().replace('\\', "/")),
         ("BISON_EXECUTABLE".into(), bison.to_string_lossy().replace('\\', "/")),
     ];
     if let Some(ffmpeg) = env::var_os("SHINKI_EMU_FFMPEG_INSTALLED") {
