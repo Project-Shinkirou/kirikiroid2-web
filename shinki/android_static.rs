@@ -2,7 +2,7 @@
 //! Undefined Android/C++ runtime imports stay untouched; every defined private
 //! symbol (and its internal references) receives the same core-specific name.
 use serde_json::Value;
-use std::{collections::BTreeSet, env, error::Error, fs, path::{Path, PathBuf}, process::Command};
+use std::{collections::{BTreeMap, BTreeSet}, env, error::Error, fs, path::{Path, PathBuf}, process::Command};
 
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
 const EXPORTS: [&str; 3] = ["shinki_emu_kirikiroid2_web_query", "shinki_emu_kirikiroid2_web_set_resource_root", "shinki_emu_kirikiroid2_web_android_initialize"];
@@ -16,6 +16,8 @@ fn capture(command: &mut Command) -> Result<String> {
 }
 fn json(path: &Path) -> Result<Value> { Ok(serde_json::from_slice(&fs::read(path)?)?) }
 
+#[path = "android_link_plan.rs"]
+mod link_plan;
 enum LinkInput { Archive(usize), Whole(bool) }
 pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     let reply = native.join(".cmake/api/v1/reply");
@@ -27,39 +29,82 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     let targets = model["configurations"][0]["targets"].as_array().ok_or("CMake targets missing")?;
     let plan = targets.iter().find(|target| target["name"] == "shinki_krkr_link_plan").ok_or("Krkr link plan missing")?;
     let plan = json(&reply.join(plan["jsonFile"].as_str().ok_or("link plan JSON missing")?))?;
+    let generator = index["cmake"]["generator"]["name"].as_str().ok_or("CMake generator missing")?;
+    let directory = link_plan::command_directory(native, plan["paths"]["build"].as_str().ok_or("link plan build directory missing")?, generator)?;
+    let mut project_artifacts = BTreeSet::new();
+    for target in targets {
+        let target = json(&reply.join(target["jsonFile"].as_str().ok_or("CMake target file missing")?))?;
+        if target["type"] != "STATIC_LIBRARY" { continue; }
+        for artifact in target["artifacts"].as_array().ok_or("CMake archive artifacts missing")? {
+            let path = native.join(artifact["path"].as_str().ok_or("CMake artifact path missing")?);
+            if path.is_file() { project_artifacts.insert(fs::canonicalize(path)?); }
+        }
+    }
+    let resolve = |token: &str| link_plan::resolve_archive(token, &directory, &project_artifacts);
+    let mut tokens = Vec::new();
+    for fragment in plan["link"]["commandFragments"].as_array().ok_or("CMake link fragments missing")? {
+        let text = fragment["fragment"].as_str().ok_or("link fragment missing")?;
+        #[cfg(windows)]
+        let arguments = link_plan::windows_arguments(text)?;
+        #[cfg(not(windows))]
+        let arguments = shlex::split(text).ok_or("invalid POSIX CMake link fragment")?;
+        tokens.extend(arguments);
+    }
+    let mut search = Vec::new();
+    for token in &tokens {
+        if let Some(path) = token.strip_prefix("-L") {
+            let path = PathBuf::from(path);
+            if !path.is_absolute() || !path.is_dir() { return Err(format!("invalid CMake library directory: {}", path.display()).into()); }
+            if !search.contains(&path) { search.push(path); }
+        }
+    }
+    for token in tokens.iter().filter(|token| token.ends_with(".a")) {
+        let path = resolve(token)?;
+        let parent = path.parent().ok_or("archive parent missing")?.to_owned();
+        if !search.contains(&parent) { search.push(parent); }
+    }
     let mut archives = vec![adapter.to_owned()];
+    let mut archive_ids = BTreeMap::from([(fs::canonicalize(adapter)?, 0)]);
     let mut inputs = vec![LinkInput::Archive(0)];
     let mut system = BTreeSet::new();
-    for fragment in plan["link"]["commandFragments"].as_array().ok_or("CMake link fragments missing")? {
-        for token in shlex::split(fragment["fragment"].as_str().ok_or("link fragment missing")?).ok_or("invalid CMake link fragment")? {
-            if matches!(token.as_str(), "-Wl,--whole-archive" | "--whole-archive") {
-                inputs.push(LinkInput::Whole(true));
-            } else if matches!(token.as_str(), "-Wl,--no-whole-archive" | "--no-whole-archive") {
-                inputs.push(LinkInput::Whole(false));
-            } else if token.ends_with(".a") {
-                let path = PathBuf::from(&token);
-                let path = if path.is_absolute() { path } else { native.join(path) };
-                if !path.is_file() { return Err(format!("static dependency missing: {}", path.display()).into()); }
-                let index = if let Some(index) = archives.iter().position(|archive| archive == &path) {
-                    index
-                } else {
-                    archives.push(path);
-                    archives.len() - 1
-                };
-                inputs.push(LinkInput::Archive(index));
-            } else if let Some(name) = token.strip_prefix("-l") {
-                system.insert(name.to_owned());
-            } else if token.ends_with(".so") {
-                // Only toolchain runtimes may remain shared. A core dependency
-                // must be built statically, not silently shipped as a plugin.
-                let name = Path::new(&token).file_name().and_then(|s| s.to_str()).ok_or("runtime filename")?;
-                if !matches!(name, "libc++_shared.so" | "libomp.so") {
-                    return Err(format!("non-static Krkr dependency: {token}").into());
-                }
-                println!("cargo:rustc-link-search=native={}", Path::new(&token).parent().unwrap().display());
-                system.insert(name.trim_start_matches("lib").trim_end_matches(".so").to_owned());
-            }
+    for token in tokens {
+        if matches!(token.as_str(), "-Wl,--whole-archive" | "--whole-archive") {
+            inputs.push(LinkInput::Whole(true));
+            continue;
         }
+        if matches!(token.as_str(), "-Wl,--no-whole-archive" | "--no-whole-archive") {
+            inputs.push(LinkInput::Whole(false));
+            continue;
+        }
+        let path = if token.ends_with(".a") {
+            resolve(&token)?
+        } else if let Some(name) = token.strip_prefix("-l") {
+            if matches!(name, "android" | "log" | "dl" | "m" | "c" | "atomic" | "EGL" | "GLESv1_CM" | "GLESv2" | "OpenSLES" | "c++_shared" | "omp") {
+                system.insert(name.to_owned());
+                continue;
+            }
+            // pkg-config emits some transitive native libraries as -l names.
+            // They belong inside the same private static closure, not in Rust's
+            // process-global/system link set.
+            search.iter().map(|dir| dir.join(format!("lib{name}.a"))).find(|path| path.is_file())
+                .ok_or_else(|| format!("CMake native library has no static archive: {name}"))?
+        } else if token.ends_with(".so") {
+            let name = Path::new(&token).file_name().and_then(|s| s.to_str()).ok_or("runtime filename")?;
+            if !matches!(name, "libc++_shared.so" | "libomp.so") { return Err(format!("non-static Krkr dependency: {token}").into()); }
+            println!("cargo:rustc-link-search=native={}", Path::new(&token).parent().unwrap().display());
+            system.insert(name.trim_start_matches("lib").trim_end_matches(".so").to_owned());
+            continue;
+        } else { continue; };
+        let identity = fs::canonicalize(&path)?;
+        let index = if let Some(&index) = archive_ids.get(&identity) {
+            index
+        } else {
+            let index = archives.len();
+            archives.push(path);
+            archive_ids.insert(identity, index);
+            index
+        };
+        inputs.push(LinkInput::Archive(index));
     }
     let ndk = PathBuf::from(env::var_os("ANDROID_NDK_HOME").ok_or("ANDROID_NDK_HOME missing")?);
     let host = if cfg!(windows) { "windows-x86_64" } else if cfg!(target_os = "macos") { "darwin-x86_64" } else { "linux-x86_64" };

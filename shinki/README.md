@@ -24,6 +24,13 @@ registration objects are not discarded just because they have no named caller.
 Only the unique query, resource-root setter and Android host initializer retain
 their public names.
 Android platform and C++/OpenMP runtime imports remain normal shared imports.
+Project archives come from CMake's structured target artifact records; relative
+link paths use the recorded generator's real command directory. Windows
+fragments use the Windows argv parser, not POSIX shell escaping. Native
+pkg-config `-l` dependencies enter the same private archive closure.
+`android_link_plan.rs` consumer regressions compile and partially link real NDK
+archives/callers for paths with spaces/backslashes, Ninja/Makefile directories,
+and missing or undeclared archive rejection.
 
 The Manager stages `Resources` and authentic dependency notices through
 `native-static` build metadata, extracts APK assets into app-private storage,
