@@ -125,6 +125,9 @@ The Android owner creates an OpenGL ES 2 EGL pbuffer on its native thread,
 uses the original Cocos renderer and reads back the game canvas for Manager.
 It owns and destroys its EGL context/surface without terminating the process's
 shared display. CoreApi supplies input; no GLFW window or Java event loop is used.
+Its Cocos Android support archive is linked normally, preserving the required
+support objects without forcing the separate Java-Activity bootstrap and its
+competing `JNI_OnLoad` into the CoreApi-owned module. SDL keeps its own loader.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
