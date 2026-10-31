@@ -916,6 +916,9 @@ void TVPExitApplication(int code) {
         host->request_exit(host->context, code);
         throw EAbort(TJS_W("embedded session exit"));
     }
+#if defined(KRKR2_SHINKI_EMU)
+    throw EAbort(TJS_W("embedded session owner unavailable"));
+#else
     TVPDeliverCompactEvent(TVP_COMPACT_LEVEL_MAX);
     if(!TVPIsSoftwareRenderManager())
         iTVPTexture2D::RecycleProcess();
@@ -926,6 +929,7 @@ void TVPExitApplication(int code) {
         t.env->DeleteLocalRef(t.classID);
     }
     exit(code);
+#endif
 }
 
 void TVPHideIME() {

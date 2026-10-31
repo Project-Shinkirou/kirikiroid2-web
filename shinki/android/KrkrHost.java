@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.krkrc2dx.lib.Cocos2dxHelper;
 import org.krkrsd.app.SDL;
 
@@ -15,6 +17,7 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
     private static volatile boolean initialized;
     private static volatile boolean ownerActive;
     private static volatile boolean resumed;
+    private static boolean sdlInitialized;
 
     private static native int nativeInitialize();
     private static native void nativeRequestExit();
@@ -23,14 +26,38 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
     }
 
     // Called by the registered native initializer, before any query registration.
-    public static synchronized void initialize(Activity host) {
+    public static void initialize(Activity host) {
+        // SDL's nativeSetupJNI caches its calling thread's environment. Use
+        // Android's process-attached UI thread, never a scoped Rust attachment.
+        CompletableFuture<Void> ready = new CompletableFuture<>();
+        host.runOnUiThread(() -> {
+            try {
+                initializeServices(host);
+                ready.complete(null);
+            } catch (RuntimeException | Error failure) {
+                ready.completeExceptionally(failure);
+            }
+        });
+        try { ready.join(); }
+        catch (CompletionException failure) {
+            if (failure.getCause() instanceof Error) throw (Error)failure.getCause();
+            throw (RuntimeException)failure.getCause();
+        }
+    }
+
+    private static synchronized void initializeServices(Activity host) {
         if (initialized) throw new IllegalStateException("KRKR_HOST_ALREADY_INITIALIZED");
         activity = new WeakReference<>(host);
         try {
-            if (nativeInitialize() < 0) throw new IllegalStateException("KRKR_SDL_JNI_INITIALIZATION");
-            SDL.initialize();
-            SDL.setContext(host.getApplicationContext());
-            SDL.setupJNI();
+            if (!sdlInitialized) {
+                if (nativeInitialize() < 0) throw new IllegalStateException("KRKR_SDL_JNI_INITIALIZATION");
+                SDL.initialize();
+                SDL.setContext(host.getApplicationContext());
+                SDL.setupJNI();
+                sdlInitialized = true;
+            } else {
+                SDL.setContext(host.getApplicationContext());
+            }
             Cocos2dxHelper.init(host);
             org.tvp.kirikiri2.KR2Activity.initialize(host);
             initialized = true;

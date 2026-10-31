@@ -46,6 +46,13 @@ The original Helper `init(Activity)` signature is preserved. A recreated
 NativeActivity rebinds Java services after the previous owner has joined; native
 VM/classloader setup is process-scoped, and initializer local references are
 bounded by a JNI local frame. No Activity local reference is retained by C++.
+The Android Cocos overlay queries JavaVM for the current environment on every
+entry, detaches only Cocos-owned attachments, and replaces classloader/context
+global references without leaking their predecessors. SDL's original setup
+runs once on Android's process-attached UI thread, outside scoped Rust
+attachments; the original native registration tables and helper code remain.
+An embedded exit without an active owner throws instead of falling back to
+process termination.
 `KR2Activity` is a ContextWrapper service, not another Activity entry point.
 Queued Java callbacks drain on the original core owner; modal requests and
 game exit use the existing embedded host rather than the old Activity/process

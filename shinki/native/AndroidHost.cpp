@@ -85,6 +85,7 @@ void owner_call(jmethodID method) {
     // destructor to DetachCurrentThread. No JNIEnv crosses a thread boundary.
     auto env = cocos2d::JniHelper::getEnv();
     if(!env || !host_class || !method) throw std::runtime_error("KRKR_ANDROID_HOST_UNINITIALIZED");
+    LocalFrame frame(env);
     env->CallStaticVoidMethod(host_class, method);
     check(env, "KRKR_JAVA_OWNER_CALLBACK");
 }
