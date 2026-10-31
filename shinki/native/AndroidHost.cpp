@@ -7,6 +7,7 @@
 #include <jni.h>
 #include <stdexcept>
 #include <string>
+#include <atomic>
 
 extern "C" {
 // This name is applied to SDL's original loader before closure resolution.
@@ -23,6 +24,7 @@ namespace {
 JavaVM *host_vm = nullptr;
 jclass host_class = nullptr;
 jmethodID start_method = nullptr, drain_method = nullptr, stop_method = nullptr;
+std::atomic<bool> ready{false};
 
 void check(JNIEnv *env, const char *code) {
     if(env->ExceptionCheck()) {
@@ -122,6 +124,7 @@ extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_android_initialize(void *v
         env->CallStaticVoidMethod(host_class, initialize.methodID, static_cast<jobject>(activity));
         env->DeleteLocalRef(initialize.classID);
         check(env, "KRKR_JAVA_HOST_INITIALIZATION");
+        ready.store(true, std::memory_order_release);
         return ShinkiEmuOK;
     } catch(...) {
         return ShinkiEmuCORE_ERROR;
@@ -129,6 +132,7 @@ extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_android_initialize(void *v
 }
 
 namespace shinki::krkr::android {
+bool initialized() noexcept { return ready.load(std::memory_order_acquire); }
 void owner_started() { owner_call(start_method); }
 void drain() { owner_call(drain_method); }
 void owner_stopped() { owner_call(stop_method); }

@@ -25,7 +25,6 @@ fn helper(source: &mut String) -> Result<()> {
     replace(source, "private static boolean sInited = false;", r#"private static boolean sInited = false;
     private static boolean serviceBound;
     public static void releaseHost() {
-        if (!sInited) return;
         if (sCocos2dxAccelerometer != null) sCocos2dxAccelerometer.disable();
         if (sCocos2dMusic != null) sCocos2dMusic.end();
         if (sCocos2dSound != null) sCocos2dSound.end();
@@ -41,6 +40,11 @@ fn helper(source: &mut String) -> Result<()> {
         sOBBFile = null;
         sAssetsPath = "";
         sInited = false;
+    }
+    public static void resetOwner() {
+        sAccelerometerEnabled = false;
+        sCompassEnabled = false;
+        if (sCocos2dxAccelerometer != null) sCocos2dxAccelerometer.disable();
     }"#)?;
     if source.contains("Cocos2dxActivity") { return Err("unadapted Cocos Activity dependency".into()); }
     Ok(())

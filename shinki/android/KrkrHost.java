@@ -18,20 +18,30 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
 
     private static native int nativeInitialize();
     private static native void nativeRequestExit();
-    public static void requestExit() { queue(KrkrHost::nativeRequestExit); }
+    public static void requestExit() {
+        if (!queue(KrkrHost::nativeRequestExit)) throw new RejectedExecutionException("KRKR_OWNER_NOT_RUNNING");
+    }
 
     // Called by the registered native initializer, before any query registration.
     public static synchronized void initialize(Activity host) {
         if (initialized) throw new IllegalStateException("KRKR_HOST_ALREADY_INITIALIZED");
         activity = new WeakReference<>(host);
-        if (nativeInitialize() < 0) throw new IllegalStateException("KRKR_SDL_JNI_INITIALIZATION");
-        SDL.initialize();
-        SDL.setContext(host.getApplicationContext());
-        SDL.setupJNI();
-        Cocos2dxHelper.init(host, new KrkrHost());
-        org.tvp.kirikiri2.KR2Activity.initialize(host);
-        initialized = true;
-        if (resumed) Cocos2dxHelper.onResume();
+        try {
+            if (nativeInitialize() < 0) throw new IllegalStateException("KRKR_SDL_JNI_INITIALIZATION");
+            SDL.initialize();
+            SDL.setContext(host.getApplicationContext());
+            SDL.setupJNI();
+            Cocos2dxHelper.init(host, new KrkrHost());
+            org.tvp.kirikiri2.KR2Activity.initialize(host);
+            initialized = true;
+            if (resumed) Cocos2dxHelper.onResume();
+        } catch (RuntimeException | Error failure) {
+            try { Cocos2dxHelper.releaseHost(); }
+            catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            SDL.setContext(null);
+            activity.clear();
+            throw failure;
+        }
     }
 
     public static Activity activity() {
@@ -40,9 +50,10 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
         return host;
     }
 
-    public static synchronized void queue(Runnable runnable) {
-        if (!ownerActive) throw new RejectedExecutionException("KRKR_OWNER_NOT_RUNNING");
+    public static synchronized boolean queue(Runnable runnable) {
+        if (!ownerActive) return false; // An event for a closed VM has no consumer.
         pending.add(runnable);
+        return true;
     }
 
     public static synchronized void ownerStarted() { ownerActive = true; }
@@ -51,6 +62,7 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
     }
     public static synchronized void ownerStopped() {
         ownerActive = false;
+        Cocos2dxHelper.resetOwner();
         pending.clear();
     }
 
@@ -84,7 +96,9 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
         activity.clear();
     }
 
-    @Override public void runOnGLThread(Runnable runnable) { queue(runnable); }
+    @Override public void runOnGLThread(Runnable runnable) {
+        if (!queue(runnable)) throw new RejectedExecutionException("KRKR_OWNER_NOT_RUNNING");
+    }
     @Override public void showDialog(String title, String message) {
         Activity host = activity();
         host.runOnUiThread(() -> new AlertDialog.Builder(host).setTitle(title)

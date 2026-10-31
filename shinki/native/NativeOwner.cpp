@@ -11,6 +11,9 @@
 #include "NativeSession.h"
 #include "NativeLifecycle.h"
 #include "NativeLog.h"
+#if defined(SHINKI_EMU_STATIC_CORE)
+#include "AndroidHost.h"
+#endif
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <array>
@@ -555,6 +558,7 @@ const ShinkiEmuCoreApi api{{sizeof(ShinkiEmuCoreApi), ShinkiEmuABI_VERSION}, ini
 #if defined(SHINKI_EMU_STATIC_CORE)
 extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_set_resource_root(const uint8_t *path, size_t length) noexcept {
     return boundary(nullptr, [&] {
+        require(shinki::krkr::android::initialized(), "KRKR_ANDROID_HOST_UNINITIALIZED", ShinkiEmuINVALID_STATE);
         require(path && length && !occupied.load(), "KRKR_RESOURCE_ROOT_STATE", ShinkiEmuINVALID_STATE);
         const auto root = std::filesystem::u8path(std::string(reinterpret_cast<const char *>(path), length));
         require(root.is_absolute() && std::filesystem::is_directory(root), "KRKR_RESOURCE_ROOT_INVALID");
