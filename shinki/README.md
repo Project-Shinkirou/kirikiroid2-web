@@ -119,6 +119,8 @@ required by the original sound module. Its pinned vcpkg port installs headers an
 the library without a CMake package config; the sound target locates those real
 inputs and retains Oboe's `log`/`OpenSLES` link dependencies.
 Cocos UI resources are included in the package.
+The libgdiplus overlay fixes up its exported CMake configuration so dependency
+paths follow the selected install root when restored from a binary cache.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
