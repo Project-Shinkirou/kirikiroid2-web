@@ -8,8 +8,11 @@ The associated header defines FMOD_VERSION 0x00010608 (SDK 1.06.08).
 The runtime's ELF SONAME is libfmod.so.6. The SDK-header version identifies the
 bundled SDK; it is not a runtime version-query result.
 
-Original binary: linux-specific/fmod/prebuilt/64-bit/libfmod.so
-SHA256: d4454884763c746c70c4ea2a9b0ca35555fef2bf174072be21924cb9a80d84a9
+Archive member: linux-specific/fmod/prebuilt/64-bit/libfmod.so
+Archive member SHA256: f050891a93e52700cd7cbc99954909384e5d7734de104937ddc21d356f6bd96c
+Reviewed vcpkg-installed input SHA256: d4454884763c746c70c4ea2a9b0ca35555fef2bf174072be21924cb9a80d84a9
+vcpkg adds RUNPATH $ORIGIN:$ORIGIN/../../../../../../lib to the archive member.
+Applying that metadata change reproduces the reviewed installed-input hash.
 Archive: https://github.com/2468785842/cocos2d-x-3rd-party-libs-bin/archive/refs/heads/v3.tar.gz
 SHA512: 44086c0eb89e3085eaf1e55b326d6b919d839f95bf56868f8eda44de80a526c8910e6587818ee2364c7bc139b032cfdb3bc35c1e2f76d6275b422c74e7bf8614
 The checked archive has no root LICENSE and no FMOD license/readme/legal text.
@@ -35,7 +38,9 @@ used by this build. DownloadDeps.cmake verifies the external SHA512 above.
 Rebuild Cocos and the core with the supplied recipes and headers; reuse the
 original prebuilt FMOD input from that verified external archive. Packaging
 copies it as the ordinary file libfmod.so.6 and sets a relative $ORIGIN RUNPATH.
-The packaged file's hash changes when RUNPATH is written; its input hash above
-identifies the original. FMOD implementation source is not in the upstream
+The packaged file's hash changes when RUNPATH is written. The archive,
+installed and packaged inputs retain identical executable .text bytes
+(SHA256 fb887600dc4117baf1744e4757c3971e86fb79dbb6bc40612b09d13da5216684).
+FMOD implementation source is not in the upstream
 archive and is not represented as supplied corresponding source. No generated
 or substitute FMOD implementation is included.
