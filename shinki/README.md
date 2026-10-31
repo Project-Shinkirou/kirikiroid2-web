@@ -111,6 +111,11 @@ and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
 compatibility API is retained; it does not rely on NDK r30 carrying the
 removed `sources/android/cpufeatures` headers.
 
+Android builds target API 28, matching the ShinkiEMU vcpkg triplets and their
+bionic iconv dependency. The adapter preserves the supplied vcpkg triplet and
+builds a shared `.so` for standalone core packages on both arm64-v8a and x86_64.
+Breakpad remains enabled. Cocos UI resources are included in the package.
+
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
 and the core imports them. libbpg selects the HEVC decoder through the public

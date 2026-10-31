@@ -1,7 +1,7 @@
 if(NOT (WINDOWS OR LINUX OR APPLE OR ANDROID))
     message(FATAL_ERROR "KRKR2_SHINKI_EMU requires a desktop POSIX, Apple or Android target")
 endif()
-if(IOS OR ANDROID)
+if(IOS)
     add_library(shinki_emu_kirikiroid2_web STATIC NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
 else()
     add_library(shinki_emu_kirikiroid2_web SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
@@ -30,6 +30,7 @@ endif()
 if(WINDOWS)
     cocos_copy_target_dll(shinki_emu_kirikiroid2_web)
 endif()
+set(GAME_RES_FOLDER "${PROJECT_SOURCE_DIR}/ui/cocos-studio")
 add_custom_target(shinki_emu_kirikiroid2_web_resources
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${GAME_RES_FOLDER}" "$<TARGET_FILE_DIR:shinki_emu_kirikiroid2_web>/Resources"

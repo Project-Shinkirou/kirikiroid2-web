@@ -64,13 +64,14 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         };
         definitions.push(("ANDROID".into(), "ON".into()));
         definitions.push(("ANDROID_ABI".into(), abi.into()));
+        definitions.push(("ANDROID_PLATFORM".into(), "android-28".into()));
     }
     if target.contains("ios") { definitions.push(("IOS".into(), "ON".into())); }
     let native = configure_cmake(root, &definitions, &["shinki_emu_kirikiroid2_web"])?;
     let directory = native.join("shinki");
     let (library_name, static_link) = if target == "x86_64-pc-windows-msvc" {
         ("shinki_emu_kirikiroid2_web.dll", false)
-    } else if target.contains("ios") || target.contains("android") {
+    } else if target.contains("ios") {
         ("libshinki_emu_kirikiroid2_web.a", true)
     } else if target.contains("apple") { ("libshinki_emu_kirikiroid2_web.dylib", false) }
     else { ("libshinki_emu_kirikiroid2_web.so", false) };
