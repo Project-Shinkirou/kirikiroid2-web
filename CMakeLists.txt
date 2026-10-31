@@ -311,7 +311,7 @@ elseif(IOS)
 #                proj.ios_mac/ios/Prefix.pch
 #                ${APP_UI_RES}
 #        )
-elseif(MACOS)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(APP_UI_RES
             ${CMAKE_CURRENT_SOURCE_DIR}/platforms/apple/macos/Icon.icns
             ${CMAKE_CURRENT_SOURCE_DIR}/platforms/apple/macos/Info.plist

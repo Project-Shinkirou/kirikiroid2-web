@@ -28,6 +28,26 @@
 #include "EventIntf.h"
 #include "Platform.h"
 #include "tjsString.h"
+#include "EmbeddedModal.h"
+#include "EmbeddedSession.h"
+#include "Exception.h"
+
+static int TVPRequestEmbeddedModal(const TVPEmbeddedModalHost &host,
+                                   const ttstr &caption, const ttstr &message,
+                                   const std::vector<ttstr> &buttons,
+                                   ttstr *input) {
+    std::vector<std::string> labels;
+    labels.reserve(buttons.size());
+    for(const auto &button : buttons)
+        labels.push_back(button.AsStdString());
+    std::string text = input ? input->AsStdString() : std::string{};
+    const int result = host.request(host.context, caption.AsStdString(),
+                                    message.AsStdString(), labels,
+                                    input ? &text : nullptr);
+    if(result >= 0 && input)
+        *input = ttstr(text);
+    return result;
+}
 
 //bool initWindow(cocos2d::GLView* glView) {
 //
@@ -212,6 +232,10 @@ bool TVPCheckStartupArg() {
 void TVPControlAdDialog(int, int, int) { /*pass*/ }
 
 void TVPExitApplication(int code) {
+    if(const auto host = TVPGetEmbeddedSessionHost()) {
+        host->request_exit(host->context, code);
+        throw EAbort(TJS_W("embedded session exit"));
+    }
     // clear some static data for memory leak detect
     TVPDeliverCompactEvent(TVP_COMPACT_LEVEL_MAX);
     exit(code);
@@ -335,9 +359,33 @@ void TVPProcessInputEvents() { /* pass */ }
 int TVPShowSimpleInputBox(ttstr &text, const ttstr &caption,
                           const ttstr &prompt,
                           const std::vector<ttstr> &vecButtons) {
-    // TODO
-    spdlog::get("core")->warn("macos platform simple input box not implement");
-    return 0;
+    if(const auto host = TVPGetEmbeddedModalHost())
+        return TVPRequestEmbeddedModal(*host, caption, prompt, vecButtons, &text);
+    if(![NSThread isMainThread]) {
+        __block int result = -1;
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            result = TVPShowSimpleInputBox(text, caption, prompt, vecButtons);
+        });
+        return result;
+    }
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:[NSString stringWithUTF8String:caption.AsStdString().c_str()]];
+    [alert setInformativeText:[NSString stringWithUTF8String:prompt.AsStdString().c_str()]];
+    NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 320, 24)];
+    [field setStringValue:[NSString stringWithUTF8String:text.AsStdString().c_str()]];
+    [alert setAccessoryView:field];
+    for(const auto &button : vecButtons)
+        [alert addButtonWithTitle:[NSString stringWithUTF8String:button.AsStdString().c_str()]];
+    const NSInteger response = [alert runModal] - NSAlertFirstButtonReturn;
+    const int result = response >= 0 && static_cast<size_t>(response) < vecButtons.size()
+        ? static_cast<int>(response) : -1;
+    if(result >= 0)
+        text = ttstr([[field stringValue] UTF8String]);
+#if !__has_feature(objc_arc)
+    [field release];
+    [alert release];
+#endif
+    return result;
 }
 
 tjs_uint32 TVPGetRoughTickCount32() {
@@ -375,6 +423,8 @@ tjs_int TVPGetSystemFreeMemory() {
 
 int TVPShowSimpleMessageBox(const ttstr &text, const ttstr &caption,
                             const std::vector<ttstr> &vecButtons) {
+    if(const auto host = TVPGetEmbeddedModalHost())
+        return TVPRequestEmbeddedModal(*host, caption, text, vecButtons, nullptr);
     // 确保在主线程执行UI操作
     if (![NSThread isMainThread]) {
         __block int result = -1;

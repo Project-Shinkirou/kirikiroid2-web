@@ -11,7 +11,6 @@
       "generator": "Ninja",
       "hidden": true,
       "cacheVariables": {
-        "MACOS": true,
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": true
