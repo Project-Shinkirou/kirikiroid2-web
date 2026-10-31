@@ -73,6 +73,12 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     fs::write(&map, renames.into_iter().collect::<Vec<_>>().join("\n") + "\n")?;
     let isolated = native.join("shinki/krkr-isolated.o");
     capture(Command::new(executable("llvm-objcopy")).arg(format!("--redefine-syms={}", map.display())).arg(&object).arg(&isolated))?;
+    let isolated_symbols = capture(Command::new(executable("llvm-nm")).args(["--defined-only", "--extern-only", "--format=posix"]).arg(&isolated))?;
+    let names: BTreeSet<_> = isolated_symbols.lines().filter_map(|line| line.split_whitespace().next()).collect();
+    if EXPORTS.iter().any(|export| !names.contains(export))
+        || names.iter().any(|name| !EXPORTS.contains(name) && !name.starts_with("shinki_krkr_")) {
+        return Err("Krkr static closure leaked an unisolated symbol or lost its query/resource entry".into());
+    }
     let archive = native.join("shinki/libshinki_krkr_closure.a");
     if archive.exists() { fs::remove_file(&archive)?; }
     capture(Command::new(executable("llvm-ar")).arg("crs").arg(&archive).arg(&isolated))?;
