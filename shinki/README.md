@@ -26,6 +26,9 @@ cannot leak into the core; native Apple video/audio and codec support remain.
 The shared OpenGL header includes Apple's `TargetConditionals.h` itself and
 selects OpenGLES for iOS or OpenGL for macOS. Motion's stencil renderer does not
 depend on another header accidentally defining the platform macros first.
+LayerExDraw's libgdiplus matrix predicates use the provider's `gboolean` output
+ABI on every platform, including Apple headers where Objective-C `BOOL` is a
+different type. Their status and actual matrix result are preserved.
 The macOS adapter is built with its installed `@loader_path` runtime search path,
 so the exact inspected build output does not retain absolute vcpkg directories.
 Apple plugin compilation prioritizes the linked LZ4 target's headers over host

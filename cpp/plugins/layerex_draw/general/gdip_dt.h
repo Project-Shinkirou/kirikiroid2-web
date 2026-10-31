@@ -3,13 +3,13 @@
 //
 #pragma once
 
-// because on MacOS the BOOL redefined in objc.h
-// libgdiplus has BOOL too!
+// Objective-C BOOL and libgdiplus BOOL have different Apple ABIs.
+// Keep libgdiplus's gboolean representation while isolating its header token.
 
 #if TARGET_OS_MAC || TARGET_OS_IPHONE
 #define _WAPI_UGLIFY_H_
 #define HANDLE void *
-#define BOOL bool
+#define BOOL gboolean
 #define CONST const
 #define VOID void
 #endif
