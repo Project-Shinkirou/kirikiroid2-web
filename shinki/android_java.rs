@@ -88,7 +88,11 @@ pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
         let archive = cache.join(file);
         println!("cargo:rerun-if-changed={}", archive.display());
         let bytes = fs::read(&archive)?;
-        if format!("{:x}", Sha512::digest(&bytes)) != hash { return Err(format!("pinned Java archive SHA512 mismatch: {file}").into()); }
+        let digest = Sha512::digest(&bytes);
+        let hex = b"0123456789abcdef";
+        if !digest.iter().flat_map(|&byte| [hex[usize::from(byte >> 4)], hex[usize::from(byte & 15)]]).eq(hash.bytes()) {
+            return Err(format!("pinned Java archive SHA512 mismatch: {file}").into());
+        }
         let mut archive = tar::Archive::new(GzDecoder::new(bytes.as_slice()));
         for entry in archive.entries()? {
             let mut entry = entry?;

@@ -32,7 +32,9 @@ Standalone shared builds retain the generic dynamic query. Static embedding
 does not enable downloadable Android dynamic-core installation.
 
 Java consumers are staged from the SHA512-verified Cocos 3.17.2 and SDL 2.32.10
-source archives already prepared by vcpkg. SDL uses private `org.krkrsd.app`
+source archives already prepared by vcpkg. Digest bytes are compared to the
+pinned hex checksums without relying on an array formatting trait.
+SDL uses private `org.krkrsd.app`
 classes and Cocos uses `org.krkrc2dx.lib`; equal-width ELF class-name rewriting
 matches the staged Java namespaces. SDL's original native registration table
 runs through a uniquely named explicit initializer, not a second exported
