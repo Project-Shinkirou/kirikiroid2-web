@@ -347,3 +347,6 @@ histories through real merges. Android's process-lifetime Java host and private
 resource root are selected only for Android static embedding. Apple's existing
 static bundle-relative resource path remains separate; merging these histories
 does not accept or enable a new iOS product.
+The Apple platform uses the shared `Platform.h` embedded-modal helper, identical
+to its former local implementation, so the Android/shared-header merge does not
+introduce a second conflicting definition or remove host modal dispatch.
