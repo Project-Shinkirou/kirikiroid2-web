@@ -1,0 +1,24 @@
+diff --git a/src/carbon-private.c b/src/carbon-private.c
+--- a/src/carbon-private.c
++++ b/src/carbon-private.c
+@@ -25,3 +25,3 @@
+-#ifdef __APPLE__
++#ifdef OSX
+ #include <Carbon/Carbon.h>
+ #include <IOKit/graphics/IOGraphicsLib.h>
+diff --git a/src/carbon-private.h b/src/carbon-private.h
+--- a/src/carbon-private.h
++++ b/src/carbon-private.h
+@@ -26,3 +26,3 @@
+-#ifdef __APPLE__
++#ifdef OSX
+ void gdip_get_display_dpi_carbon (float *h_dpi, float *v_dpi);
+ #endif
+diff --git a/src/general.c b/src/general.c
+--- a/src/general.c
++++ b/src/general.c
+@@ -129,3 +129,3 @@ gdip_get_display_dpi ()
+-#if __APPLE__
++#ifdef OSX
+ 		float h_dpi, v_dpi;
+ 		gdip_get_display_dpi_carbon (&h_dpi, &v_dpi);

@@ -165,6 +165,9 @@ GLib's iOS intl dependency carries CoreFoundation through both Meson
 consumers and generated pkg-config metadata, as required by static gettext's
 locale-preference implementation. GIO, localization and native tools remain
 enabled; this dependency does not change desktop or Android builds.
+Libgdiplus selects Carbon monitor-DPI detection and desktop linker flags
+only for macOS. iOS keeps its existing portable Cairo/Pango drawing and text
+path, including the library's normal logical DPI; image codecs stay enabled.
 
 The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
 and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
