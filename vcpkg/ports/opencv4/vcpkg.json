@@ -323,7 +323,13 @@
     },
     "openmp": {
       "description": "Enable OpenMP support",
-      "supports": "!osx"
+      "supports": "!osx",
+      "dependencies": [
+        {
+          "name": "llvm-openmp",
+          "platform": "ios"
+        }
+      ]
     },
     "openvino": {
       "description": "OpenVINO support for OpenCV DNN",
