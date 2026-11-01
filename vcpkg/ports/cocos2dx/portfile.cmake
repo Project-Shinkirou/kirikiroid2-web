@@ -35,6 +35,10 @@ vcpkg_extract_source_archive(
         patch/fix-chipmunk.patch
 )
 
+# Cocos' pkg-config-only finder predates the imported Fontconfig target.
+# Use CMake's built-in finder for both shared and static Linux builds.
+file(REMOVE "${SOURCE_PATH}/cmake/Modules/FindFontconfig.cmake")
+
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/cocos2dx-config.cmake.in" DESTINATION "${SOURCE_PATH}")
 
 file(COPY_FILE "${CMAKE_CURRENT_LIST_DIR}/patch/cocos2d-x/CMakeLists.txt" "${SOURCE_PATH}/CMakeLists.txt" ONLY_IF_DIFFERENT)
@@ -82,6 +86,10 @@ set(_COCOS_OPTIONS
     -DBUILD_JS_LIBS=OFF
     -DBUILD_LUA_LIBS=OFF
 )
+if(VCPKG_TARGET_IS_LINUX)
+    # KiriKiri's UI uses CocoStudio timelines, not the optional Spine runtime.
+    list(APPEND _COCOS_OPTIONS -DBUILD_EDITOR_SPINE=OFF)
+endif()
 
 if(VCPKG_TARGET_ARCHITECTURE STREQUAL "wasm32")
     list(APPEND _COCOS_OPTIONS
@@ -119,4 +127,8 @@ file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/share")
 file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
 
 file(GLOB LICENSE_FILES "${SOURCE_PATH}/licenses/*")
+if(VCPKG_TARGET_IS_LINUX)
+    # The untouched source archive retains this notice; the runtime omits Spine.
+    list(FILTER LICENSE_FILES EXCLUDE REGEX "/LICENSE_spine[.]txt$")
+endif()
 vcpkg_install_copyright(FILE_LIST ${LICENSE_FILES})

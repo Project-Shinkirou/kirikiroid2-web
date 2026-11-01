@@ -18,7 +18,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
     }
-    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir"] {
+    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir", "SHINKI_EMU_NATIVE_VCPKG_ROOT"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
     let adapter = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);
@@ -38,13 +38,15 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !bison.is_file() {
         return Err(format!("Bison executable missing: {}; run cargo xtask deps", bison.display()).into());
     }
+    println!("cargo:rerun-if-changed={}", toolchain.display());
+    println!("cargo:rerun-if-changed={}", bison.display());
     let mut definitions = vec![
         ("KRKR2_SHINKI_EMU".into(), "ON".into()),
         ("ENABLE_TESTS".into(), "OFF".into()),
         ("BUILD_TOOLS".into(), "OFF".into()),
         ("KRKR2_USE_STUB_SPDLOG".into(), "OFF".into()),
         ("CMAKE_TOOLCHAIN_FILE".into(), toolchain.to_string_lossy().replace('\\', "/")),
-        ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().into_owned()),
+        ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().replace('\\', "/")),
         ("BISON_EXECUTABLE".into(), bison.to_string_lossy().replace('\\', "/")),
     ];
     if let Some(ffmpeg) = env::var_os("SHINKI_EMU_FFMPEG_INSTALLED") {
@@ -78,7 +80,12 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !directory.join(library_name).is_file() {
         return Err(format!("CMake did not produce {}", directory.join(library_name).display()).into());
     }
-    if target == "x86_64-pc-windows-msvc" && !directory.join("shinki_emu_kirikiroid2_web_lifecycle_test.lib").is_file() {
+    let lifecycle = if target == "x86_64-pc-windows-msvc" {
+        "shinki_emu_kirikiroid2_web_lifecycle_test.lib"
+    } else {
+        "libshinki_emu_kirikiroid2_web_lifecycle_test.a"
+    };
+    if !directory.join(lifecycle).is_file() {
         return Err("CMake did not produce lifecycle test library".into());
     }
     println!("cargo:rustc-link-search=native={}", directory.display());
@@ -96,11 +103,20 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         source: directory.join("Resources"),
         dest: "Resources".into(),
     });
-    for name in ["LICENSE", "shinki/README.md", "cpp/plugins/layerExImage/LICENSE.TXT", "ui/cocos-studio/DroidSansFallback.LICENSE.txt", "shinki/licenses/libbpg-MIT.txt", "shinki/licenses/minizip-zlib.txt", "shinki/licenses/UnRAR.txt"] {
-        let source = root.join(name);
-        if source.is_file() {
-            manifest.licenses.push(BuildAsset { source, dest: format!("licenses/kirikiroid2-web/{}", PathBuf::from(name).file_name().unwrap().to_string_lossy()) });
-        }
+    for (source, name) in [
+        ("LICENSE", "LICENSE"),
+        ("shinki/README.md", "adapter-README.md"),
+        ("cpp/plugins/layerExImage/LICENSE.TXT", "layerExImage-LICENSE.TXT"),
+        ("ui/cocos-studio/DroidSansFallback.LICENSE.txt", "DroidSansFallback.LICENSE.txt"),
+        ("shinki/licenses/libbpg-MIT.txt", "libbpg-MIT.txt"),
+        ("shinki/licenses/minizip-zlib.txt", "minizip-zlib.txt"),
+        ("shinki/licenses/UnRAR.txt", "UnRAR.txt"),
+        ("shinki/licenses/FMOD.txt", "FMOD.txt"),
+    ] {
+        manifest.licenses.push(BuildAsset {
+            source: root.join(source),
+            dest: format!("licenses/kirikiroid2-web/{name}"),
+        });
     }
     let share = installed.join(&triplet).join("share");
     if share.is_dir() {

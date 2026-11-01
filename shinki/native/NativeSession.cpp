@@ -1,3 +1,4 @@
+#include "NativeText.h"
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -106,8 +107,9 @@ public:
         auto view = std::unique_ptr<EmbeddedView>(new EmbeddedView());
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
-        if(!view->initWithRect("Shinki KrKr context", cocos2d::Rect(0, 0, 960, 640), 1.0f, false))
+        if(!view->initWithRect("Shinki KrKr context", cocos2d::Rect(0, 0, 960, 640), 1.0f, false) || !view->getWindow())
             throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_CONTEXT");
+        glfwHideWindow(view->getWindow());
         view->autorelease();
         return view.release();
     }
@@ -126,7 +128,10 @@ static std::string path_text(const std::uint8_t *data, std::uint64_t bytes) {
     if(!data || !bytes || bytes > 4096 || std::memchr(data, 0, bytes))
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_BOUND");
     const auto text = reinterpret_cast<const char *>(data);
-    const auto path = std::filesystem::u8path(std::string(text, bytes));
+    if(!valid_utf8(text, bytes))
+        throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_UTF8");
+    std::string result(text, bytes);
+    const auto path = std::filesystem::u8path(result);
     if(!path.is_absolute() || !std::filesystem::is_directory(path))
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_PATH_DIRECTORY");
     return path.u8string() + (path.u8string().back() == '/' ? "" : "/");

@@ -160,22 +160,6 @@ bool TVPCheckStartupArg() {
     return false;
 }
 
-static int TVPRequestEmbeddedModal(const TVPEmbeddedModalHost &host,
-                                   const ttstr &caption, const ttstr &message,
-                                   const std::vector<ttstr> &buttons,
-                                   ttstr *input) {
-    std::vector<std::string> labels;
-    labels.reserve(buttons.size());
-    for(const auto &button : buttons)
-        labels.push_back(button.AsStdString());
-    std::string text = input ? input->AsStdString() : std::string{};
-    const int result = host.request(host.context, caption.AsStdString(),
-                                    message.AsStdString(), labels,
-                                    input ? &text : nullptr);
-    if(result >= 0 && input)
-        *input = ttstr(text);
-    return result;
-}
 
 int TVPShowSimpleMessageBox(const ttstr &text, const ttstr &caption,
                             const std::vector<ttstr> &vecButtons) {

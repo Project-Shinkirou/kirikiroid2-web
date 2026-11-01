@@ -2,6 +2,7 @@
 // static library is linked only by the Rust crate's unit tests; the shipped
 // core DLL does not contain or export it, and no VM or GL session is opened.
 #include "NativeLifecycle.h"
+#include "NativeText.h"
 #include <cstdint>
 #include <new>
 #include <stdexcept>
@@ -12,6 +13,9 @@ struct Silent {};
 }
 
 extern "C" {
+std::uint32_t shinki_krkr_text_test_validate(const char *text, std::size_t bytes) noexcept {
+    return shinki::krkr::valid_utf8(text, bytes);
+}
 void *shinki_krkr_lifecycle_test_new() noexcept { return new(std::nothrow) shinki::krkr::Lifecycle; }
 void shinki_krkr_lifecycle_test_free(void *p) noexcept { delete static_cast<shinki::krkr::Lifecycle *>(p); }
 std::uint32_t shinki_krkr_lifecycle_test_phase(const void *p) noexcept {
