@@ -161,6 +161,10 @@ This applies to libffi, gettext and other Autotools ports rather than
 copying individual ports to override the same platform identity.
 The original FFI/closure/assembly and localization implementations remain
 enabled; desktop and Android triplets are unchanged.
+GLib's iOS intl dependency carries CoreFoundation through both Meson
+consumers and generated pkg-config metadata, as required by static gettext's
+locale-preference implementation. GIO, localization and native tools remain
+enabled; this dependency does not change desktop or Android builds.
 
 The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
 and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
