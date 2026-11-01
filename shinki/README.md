@@ -341,3 +341,9 @@ Earlier development observations and raw diagnostics remain in the source
 project's history. They are not re-run automatically. Original game
 files and existing saves must remain unchanged; user-reported manual
 interruptions are not engine failures or completed routes.
+
+The common desktop/Android branch preserves the accepted Linux, Apple and Android
+histories through real merges. Android's process-lifetime Java host and private
+resource root are selected only for Android static embedding. Apple's existing
+static bundle-relative resource path remains separate; merging these histories
+does not accept or enable a new iOS product.

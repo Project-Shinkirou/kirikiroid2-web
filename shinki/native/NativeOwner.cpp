@@ -11,7 +11,7 @@
 #include "NativeSession.h"
 #include "NativeLifecycle.h"
 #include "NativeLog.h"
-#if defined(SHINKI_EMU_STATIC_CORE)
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
 #include "AndroidHost.h"
 #endif
 #include <spdlog/spdlog.h>
@@ -32,7 +32,7 @@
 #include <vector>
 
 namespace {
-#if defined(SHINKI_EMU_STATIC_CORE)
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
 std::string static_resources;
 std::mutex static_resources_mutex;
 #endif
@@ -402,7 +402,7 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
             auto path = std::filesystem::absolute(std::filesystem::u8path(text(r->game_path)));
             if(!std::filesystem::is_directory(path)) path = path.parent_path();
             s->game = path.u8string();
-#if defined(SHINKI_EMU_STATIC_CORE)
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
             {
                 std::lock_guard<std::mutex> lock(static_resources_mutex);
                 require(!static_resources.empty(), "KRKR_RESOURCE_ROOT_MISSING", ShinkiEmuINVALID_STATE);
@@ -420,10 +420,12 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
             require(dladdr(reinterpret_cast<void *>(&open), &info) && info.dli_fname, "KRKR_MODULE_PATH", ShinkiEmuCORE_ERROR);
             const auto module_path = std::filesystem::u8path(info.dli_fname);
 #endif
-#if !defined(SHINKI_EMU_STATIC_CORE)
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__APPLE__)
+            s->resources = (module_path.parent_path() / "cores/kirikiroid2-web/Resources").u8string();
+#elif !(defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__))
             s->resources = (module_path.parent_path() / "Resources").u8string();
 #endif
-#if defined(SHINKI_EMU_STATIC_CORE)
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
             const auto temporary_root = std::filesystem::u8path(static_resources).parent_path();
 #else
             const auto temporary_root = std::filesystem::temp_directory_path();
@@ -559,7 +561,7 @@ ShinkiEmuStatus close(ShinkiEmuSession handle, ShinkiEmuError *e) noexcept {
 ShinkiEmuStatus extension(ShinkiEmuBytes, uint32_t, const void **out) noexcept { if(out) *out = nullptr; return out ? ShinkiEmuUNSUPPORTED : ShinkiEmuINVALID_ARGUMENT; }
 const ShinkiEmuCoreApi api{{sizeof(ShinkiEmuCoreApi), ShinkiEmuABI_VERSION}, initialize, describe, probe, open, input, control, state, frame, cancel, close, extension};
 }
-#if defined(SHINKI_EMU_STATIC_CORE)
+#if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
 extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_set_resource_root(const uint8_t *path, size_t length) noexcept {
     return boundary(nullptr, [&] {
         std::lock_guard<std::mutex> lock(static_resources_mutex);
