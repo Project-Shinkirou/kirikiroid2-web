@@ -1,8 +1,10 @@
 use shinki_emu_build::{
-    configure_cmake, link_apple_static_core, native_vcpkg_installation,
+    configure_cmake, link_apple_static_core,
     write_core_build_manifest, BuildAsset, CoreBuildManifest,
 };
 use std::{env, fs, path::PathBuf};
+mod android_static;
+mod android_java;
 
 fn build() -> Result<(), Box<dyn std::error::Error>> {
     let target = env::var("TARGET")?;
@@ -14,6 +16,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     ];
     if !supported.contains(&target.as_str()) {
         return Err(format!("KiriKiri unsupported TARGET={target}").into());
+    }
+    if cfg!(feature = "static") && !target.ends_with("-linux-android") {
+        return Err("the static feature is supported by the Android Manager adapter".into());
     }
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
@@ -27,8 +32,10 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         "VCPKG_ROOT is missing; run cargo xtask deps for kirikiroid2-web",
     )?);
     let toolchain = vcpkg.join("scripts/buildsystems/vcpkg.cmake");
-    let installed = native_vcpkg_installation("kirikiroid2-web")?;
     let triplet = env::var("SHINKI_EMU_VCPKG_TRIPLET")?;
+    let installed = PathBuf::from(env::var_os("SHINKI_EMU_NATIVE_VCPKG_ROOT").ok_or(
+        "SHINKI_EMU_NATIVE_VCPKG_ROOT is missing; run cargo xtask deps",
+    )?).join("kirikiroid2-web").join(format!("installed-{triplet}"));
     if !toolchain.is_file() || !installed.join(&triplet).join("lib").is_dir() {
         return Err("KiriKiri requires the prepared vcpkg installation; run cargo xtask deps".into());
     }
@@ -42,6 +49,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed={}", bison.display());
     let mut definitions = vec![
         ("KRKR2_SHINKI_EMU".into(), "ON".into()),
+        ("KRKR2_SHINKI_EMU_STATIC".into(), if cfg!(feature = "static") { "ON" } else { "OFF" }.into()),
         ("ENABLE_TESTS".into(), "OFF".into()),
         ("BUILD_TOOLS".into(), "OFF".into()),
         ("KRKR2_USE_STUB_SPDLOG".into(), "OFF".into()),
@@ -69,11 +77,18 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         definitions.push(("ANDROID_PLATFORM".into(), "android-28".into()));
     }
     if target.contains("ios") { definitions.push(("IOS".into(), "ON".into())); }
+    let android_static = cfg!(feature = "static") && target.contains("android");
+    if android_static {
+        let query = PathBuf::from(env::var_os("OUT_DIR").ok_or("missing OUT_DIR")?)
+            .join("native/.cmake/api/v1/query");
+        fs::create_dir_all(&query)?;
+        fs::write(query.join("codemodel-v2"), "")?;
+    }
     let native = configure_cmake(root, &definitions, &["shinki_emu_kirikiroid2_web"])?;
     let directory = native.join("shinki");
     let (library_name, static_link) = if target == "x86_64-pc-windows-msvc" {
         ("shinki_emu_kirikiroid2_web.dll", false)
-    } else if target.contains("ios") {
+    } else if target.contains("ios") || android_static {
         ("libshinki_emu_kirikiroid2_web.a", true)
     } else if target.contains("apple") { ("libshinki_emu_kirikiroid2_web.dylib", false) }
     else { ("libshinki_emu_kirikiroid2_web.so", false) };
@@ -88,10 +103,15 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !directory.join(lifecycle).is_file() {
         return Err("CMake did not produce lifecycle test library".into());
     }
-    println!("cargo:rustc-link-search=native={}", directory.display());
-    let library = if static_link && target.contains("apple") {
+    if android_static {
+        android_java::stage(&adapter, &native)?;
+    }
+    let library = if android_static {
+        android_static::link(&native, &directory.join(library_name))?
+    } else if static_link && target.contains("apple") {
         link_apple_static_core("kirikiroid2-web", &native, &[installed.join(&triplet)])?
     } else {
+        println!("cargo:rustc-link-search=native={}", directory.display());
         println!("cargo:rustc-link-lib={}={}", if static_link { "static" } else { "dylib" }, "shinki_emu_kirikiroid2_web");
         directory.join(library_name)
     };
@@ -103,6 +123,12 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         source: directory.join("Resources"),
         dest: "Resources".into(),
     });
+    if android_static {
+        manifest.licenses.push(BuildAsset {
+            source: directory.join("Resources/android-host/licenses"),
+            dest: "licenses/kirikiroid2-web/android-java".into(),
+        });
+    }
     for (source, name) in [
         ("LICENSE", "LICENSE"),
         ("shinki/README.md", "adapter-README.md"),

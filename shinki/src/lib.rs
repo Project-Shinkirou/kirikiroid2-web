@@ -1,10 +1,34 @@
-//! The original Kirikiroid2 VM, GL renderer and OpenAL scheduler live in the
-//! linked native module. The Manager uses only the shared C query table.
+//! The original Kirikiroid2 VM, Cocos renderer and audio scheduler live in the
+//! linked native module. Static Android builds isolate its private symbol closure.
 use shinki_emu_abi::{CoreApi, Query, Status};
 
 unsafe extern "C" {
     #[link_name = "shinki_emu_kirikiroid2_web_query"]
     pub fn query(version: u32, output: *mut *const CoreApi) -> Status;
+}
+
+#[cfg(feature = "static")]
+unsafe extern "C" {
+    fn shinki_emu_kirikiroid2_web_set_resource_root(path: *const u8, length: usize) -> Status;
+    fn shinki_emu_kirikiroid2_web_android_initialize(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status;
+}
+
+/// Configure the APK resources extracted into the Manager's app-private tree.
+#[cfg(feature = "static")]
+pub fn set_resource_root(path: &str) -> Status {
+    unsafe { shinki_emu_kirikiroid2_web_set_resource_root(path.as_ptr(), path.len()) }
+}
+
+/// Initialize the private Cocos/SDL Java consumers before query registration.
+///
+/// # Safety
+/// `vm` must remain valid for the process lifetime. `activity` is a live local
+/// AndroidApp reference for this call only; native code does not retain it.
+/// The calling thread must be attached to `vm`. The host forwards lifecycle
+/// events and releases Java helper Activity references after native teardown.
+#[cfg(all(feature = "static", target_os = "android"))]
+pub unsafe fn initialize_android(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status {
+    unsafe { shinki_emu_kirikiroid2_web_android_initialize(vm, activity) }
 }
 
 pub const QUERY: Query = query;

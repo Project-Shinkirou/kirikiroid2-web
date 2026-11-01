@@ -33,6 +33,7 @@ vcpkg_extract_source_archive(
         patch/fix-win64.patch
         patch/fix-bullet-spell.patch
         patch/fix-chipmunk.patch
+        patch/fix-android-jni-lifetime.patch
 )
 
 # Cocos' pkg-config-only finder predates the imported Fontconfig target.
