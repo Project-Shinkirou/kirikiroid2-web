@@ -29,6 +29,9 @@ depend on another header accidentally defining the platform macros first.
 LayerExDraw's libgdiplus matrix predicates use the provider's `gboolean` output
 ABI on every platform, including Apple headers where Objective-C `BOOL` is a
 different type. Their status and actual matrix result are preserved.
+Apple libarchive uses iconv headers and libraries from the same selected SDK;
+its upstream `/opt/local` search preference cannot introduce host symbol names
+or silently lose cross-architecture archive filename conversion.
 The macOS adapter is built with its installed `@loader_path` runtime search path,
 so the exact inspected build output does not retain absolute vcpkg directories.
 Apple plugin compilation prioritizes the linked LZ4 target's headers over host

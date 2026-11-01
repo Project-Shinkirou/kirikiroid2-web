@@ -7,6 +7,36 @@ vcpkg_from_github(
 )
 
 set(platform_options)
+if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
+    set(apple_sdk "${VCPKG_OSX_SYSROOT}")
+    if(NOT apple_sdk)
+        if(VCPKG_TARGET_IS_IOS)
+            if(VCPKG_TARGET_ARCHITECTURE STREQUAL "x64")
+                set(apple_sdk iphonesimulator)
+            else()
+                set(apple_sdk iphoneos)
+            endif()
+        else()
+            set(apple_sdk macosx)
+        endif()
+    endif()
+    if(NOT IS_ABSOLUTE "${apple_sdk}")
+        execute_process(
+            COMMAND xcrun --sdk "${apple_sdk}" --show-sdk-path
+            OUTPUT_VARIABLE apple_sdk
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            COMMAND_ERROR_IS_FATAL ANY
+        )
+    endif()
+    # Libarchive adds /opt/local to its own search prefixes. Use matching SDK
+    # iconv headers and libraries, never host MacPorts headers with SDK linkage.
+    list(APPEND platform_options
+        "-DICONV_INCLUDE_DIR=${apple_sdk}/usr/include"
+        "-DLIBICONV_PATH=${apple_sdk}/usr/lib/libiconv.tbd"
+        "-DLIBCHARSET_PATH=${apple_sdk}/usr/lib/libcharset.tbd"
+    )
+endif()
+
 if(VCPKG_TARGET_IS_IOS)
     # The embedded core consumes libarchive, not standalone iOS command apps.
     # Keep every archive reader/writer and compression dependency in the library.
