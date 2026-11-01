@@ -155,6 +155,14 @@ compatibility with the original FFmpeg 3.3.9 configure probe.
 Apple adapter builds consume the original Cocos/core/plugin closure through
 a CMake interface target; they do not require the standalone app entrypoint.
 
+The libffi overlay retains vcpkg baseline
+`b1e15efef6758eaa0beb0a8732cfa66f6a68a81d`'s complete 3.5.2 recipe,
+patch and package configuration. On iOS only, its Autoconf host is
+`aarch64-apple-ios` or `x86_64-apple-ios`, distinct from the Darwin build
+machine even when the CPU matches. This prevents executing device/simulator
+configuration probes on macOS; the original FFI, closure and assembly
+implementations remain enabled. Desktop and Android configuration is unchanged.
+
 The Android OpenCV overlay uses vcpkg's `CpuFeatures::ndk_compat` library
 and locates its `ndk_compat/cpu-features.h` directory explicitly. The NDK
 compatibility API is retained; it does not rely on NDK r30 carrying the
