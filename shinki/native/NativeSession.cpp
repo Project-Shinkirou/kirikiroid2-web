@@ -20,11 +20,13 @@
 #include "visual/impl/WindowImpl.h"
 #include "platform/CCApplication.h"
 #include "platform/CCFileUtils.h"
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || CC_TARGET_PLATFORM == CC_PLATFORM_IOS
 #include "platform/CCGLView.h"
+#endif
+#if defined(__ANDROID__)
 #include <EGL/egl.h>
 extern void initExtensions();
-#else
+#elif CC_TARGET_PLATFORM != CC_PLATFORM_IOS
 #include "platform/desktop/CCGLViewImpl-desktop.h"
 #include <GLFW/glfw3.h>
 #endif
@@ -42,6 +44,9 @@ extern void TVPReleaseAudioRenderer();
 #include <stdexcept>
 
 namespace shinki::krkr {
+#if CC_TARGET_PLATFORM == CC_PLATFORM_IOS
+cocos2d::GLView *create_embedded_ios_view();
+#endif
 #if defined(__ANDROID__)
 class EmbeddedView final : public cocos2d::GLView {
     EGLDisplay display_ = EGL_NO_DISPLAY;
@@ -99,7 +104,7 @@ public:
         if(open) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_IME_UNSUPPORTED");
     }
 };
-#else
+#elif CC_TARGET_PLATFORM != CC_PLATFORM_IOS
 class EmbeddedView final : public cocos2d::GLViewImpl {
 public:
     static EmbeddedView *create() {
@@ -219,7 +224,11 @@ void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
     auto application = static_cast<cocos2d::ApplicationProtocol *>(app_.get());
     application->initGLContextAttrs();
     launched_ = true; // Includes partial launch cleanup.
+#if CC_TARGET_PLATFORM == CC_PLATFORM_IOS
+    cocos2d::Director::getInstance()->setOpenGLView(create_embedded_ios_view());
+#else
     cocos2d::Director::getInstance()->setOpenGLView(EmbeddedView::create());
+#endif
     if(!application->applicationDidFinishLaunching())
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_APPLICATION_LAUNCH");
     auto director = cocos2d::Director::getInstance();
@@ -232,7 +241,7 @@ void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
     if(!view) throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_GL_WINDOW");
 #endif
     // The context is created invisible; its present endpoint only flushes GL.
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && CC_TARGET_PLATFORM != CC_PLATFORM_IOS
     glfwSwapInterval(0);
 #endif
     if(options.window.focused) ::Application->OnActivate();

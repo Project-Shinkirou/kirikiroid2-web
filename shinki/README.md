@@ -38,6 +38,7 @@ Apple plugin compilation prioritizes the linked LZ4 target's headers over host
 package-manager prefixes; the reference LZ4 1.7.4 compile-time guard stays intact.
 
 iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
+iOS sessions own a real offscreen EAGL/OpenGLES context and complete color/depth/stencil framebuffer on the existing native worker. The view honors the requested multisampling storage and fails on an incomplete framebuffer. It does not include the desktop GLFW view or create a second UIKit window/event owner; the original game texture/readback leases still feed Manager, and teardown releases the worker's GL objects and context.
 
 The Rust adapter uses edition 2024 and requires Rust 1.99 or newer.
 
