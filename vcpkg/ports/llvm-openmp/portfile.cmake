@@ -1,16 +1,16 @@
 vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
 
-# Match the LLVM version in this fork's builtin registry baseline. Build only
-# its standalone CPU runtime, not LLVM, Clang or an offload toolchain.
+# Xcode 16.4 emits the dynamic-dispatch ABI introduced in LLVM 19.
+# Build only its standalone CPU runtime, not LLVM, Clang or offload.
 vcpkg_download_distfile(OPENMP_ARCHIVE
     URLS "https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/openmp-${VERSION}.src.tar.xz"
     FILENAME "openmp-${VERSION}.src.tar.xz"
-    SHA512 f96f5fd4c508f1390e53b943237aa7e1db1301ef660f0864305556d581275576d585ef222a82d2359d43ad8ed166096d9ec6c05ab0ee57a01679cff6b4ecba4b
+    SHA512 a6ee7e672d6f175bab672fd7cc03914485f528fc6ff82a6d8e10192de6480263bbc99dbff373d68f68a16edf0a7b46982d0fc4198c2069ff807bb77464fece7a
 )
 vcpkg_download_distfile(CMAKE_ARCHIVE
     URLS "https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/cmake-${VERSION}.src.tar.xz"
     FILENAME "cmake-${VERSION}.src.tar.xz"
-    SHA512 1334647f4be280b41858aa272bebc65e935cab772001032f77040396ba7472fbd5eb6a1a0c042ab7156540075705b7f05c8de2f02e2ce9d7ec1ec27be6bef86f
+    SHA512 3ff56e1a61dbace35d8c168ad5c94c5a09d92eb683494bfe1deabcb3640cf79b7422d44903d049d2298d54c2874f9a60c4f13f6795a3949e7eaefd5d42e62621
 )
 vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${OPENMP_ARCHIVE}")
 vcpkg_extract_source_archive(CMAKE_SOURCE_PATH ARCHIVE "${CMAKE_ARCHIVE}")
@@ -22,6 +22,10 @@ vcpkg_cmake_configure(
     OPTIONS
         -DLIBOMP_ENABLE_SHARED=OFF
         -DLIBOMP_INSTALL_ALIASES=OFF
+        -DOPENMP_ENABLE_LIBOMPTARGET=OFF
+        -DOPENMP_ENABLE_OMPT_TOOLS=OFF
+        -DLIBOMP_OMPD_SUPPORT=OFF
+        -DLIBOMP_OMPD_GDB_SUPPORT=OFF
 )
 vcpkg_cmake_install()
 file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")

@@ -1,6 +1,6 @@
 {
   "name": "llvm-openmp",
-  "version": "18.1.6",
+  "version": "19.1.7",
   "description": "LLVM's standalone CPU OpenMP runtime for static iOS consumers",
   "homepage": "https://openmp.llvm.org/",
   "license": "Apache-2.0 WITH LLVM-exception",

@@ -257,9 +257,11 @@ enabled; this dependency does not change desktop or Android builds.
 Libgdiplus selects Carbon monitor-DPI detection and desktop linker flags
 only for macOS. iOS keeps its existing portable Cairo/Pango drawing and text
 path, including the library's normal logical DPI; image codecs stay enabled.
-OpenCV's iOS OpenMP feature installs the standalone LLVM 18.1.6 CPU runtime,
-matching the registry baseline's LLVM version. The runtime builds as a thin
-static library with the selected target SDK and keeps its upstream license.
+OpenCV's iOS OpenMP feature installs the standalone LLVM 19.1.7 CPU runtime,
+whose dynamic-dispatch ABI supports Xcode 16.4's `__kmpc_dispatch_deinit` calls.
+The runtime follows the compiler ABI rather than the registry's LLVM 18 baseline;
+only the CPU runtime is built, not LLVM/Clang, offload or debugger tools.
+Its thin static library uses the selected target SDK and retains the original license.
 CMake's standard FindOpenMP performs the actual compiler/link probes; no
 OpenMP detection results or OpenCV configuration-verification checks are forced.
 
