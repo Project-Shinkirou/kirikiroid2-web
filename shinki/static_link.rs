@@ -54,6 +54,9 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
         #[cfg(not(windows))]
         let arguments = shlex::split(text).ok_or("invalid POSIX CMake link fragment")?;
         for argument in arguments {
+            if apple && argument == "-Xlinker" {
+                continue;
+            }
             if apple && argument.starts_with("-Wl,") {
                 tokens.extend(argument[4..].split(',').map(str::to_owned));
             } else {
