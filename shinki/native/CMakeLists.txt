@@ -42,9 +42,9 @@ if(IOS OR KRKR2_SHINKI_EMU_STATIC)
     # mobile platforms; no second native executable or runtime is produced.
     add_library(shinki_krkr_link_plan SHARED EXCLUDE_FROM_ALL NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
     target_link_libraries(shinki_krkr_link_plan PRIVATE
-        "$<TARGET_PROPERTY:shinki_emu_kirikiroid2_web,LINK_LIBRARIES>")
+        "$<TARGET_GENEX_EVAL:shinki_emu_kirikiroid2_web,$<TARGET_PROPERTY:shinki_emu_kirikiroid2_web,LINK_LIBRARIES>>")
     target_link_options(shinki_krkr_link_plan PRIVATE
-        "$<TARGET_PROPERTY:shinki_emu_kirikiroid2_web,LINK_OPTIONS>")
+        "$<TARGET_GENEX_EVAL:shinki_emu_kirikiroid2_web,$<TARGET_PROPERTY:shinki_emu_kirikiroid2_web,LINK_OPTIONS>>")
 endif()
 set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
     OUTPUT_NAME "shinki_emu_kirikiroid2_web"
