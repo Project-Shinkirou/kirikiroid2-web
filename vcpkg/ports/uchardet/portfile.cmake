@@ -11,6 +11,10 @@ vcpkg_from_gitlab(
         fix-test-cxx-linker.patch
 )
 
+if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
+    vcpkg_replace_string("${SOURCE_PATH}/uchardet.pc.in" "-lstdc++" "-lc++")
+endif()
+
 
 vcpkg_check_features(
     OUT_FEATURE_OPTIONS FEATURE_OPTIONS
