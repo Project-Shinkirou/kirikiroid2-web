@@ -19,7 +19,7 @@ set(ENVIRON_SOURCE_FILES
 
     $<$<BOOL:${WINDOWS}>:${ENVIRON_PATH}/win32/Platform.cpp>
 
-    $<$<STREQUAL:${CMAKE_SYSTEM_NAME},Darwin>:${ENVIRON_PATH}/apple/macos/platform.mm>
+    $<$<BOOL:${APPLE}>:${ENVIRON_PATH}/apple/platform.mm>
 
     $<$<BOOL:${WEB}>:${ENVIRON_PATH}/web/Platform.cpp>
     $<$<BOOL:${WEB}>:${ENVIRON_PATH}/web/stubs.cpp>
