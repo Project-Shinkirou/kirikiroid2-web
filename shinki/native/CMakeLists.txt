@@ -3,12 +3,16 @@ if(NOT (WINDOWS OR LINUX OR APPLE OR ANDROID))
 endif()
 if(IOS)
     enable_language(OBJCXX)
+endif()
+if(IOS OR KRKR2_SHINKI_EMU_STATIC)
     add_library(shinki_emu_kirikiroid2_web STATIC NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
     target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE SHINKI_EMU_STATIC_CORE=1)
-    target_sources(shinki_emu_kirikiroid2_web PRIVATE EmbeddedViewIOS.mm)
-    set_source_files_properties(EmbeddedViewIOS.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 else()
     add_library(shinki_emu_kirikiroid2_web SHARED NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
+endif()
+if(IOS)
+    target_sources(shinki_emu_kirikiroid2_web PRIVATE EmbeddedViewIOS.mm)
+    set_source_files_properties(EmbeddedViewIOS.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 endif()
 target_include_directories(shinki_emu_kirikiroid2_web PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -19,6 +23,10 @@ target_include_directories(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,INCLUDE_DIRECTORIES>")
 target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,COMPILE_DEFINITIONS>")
+if(KRKR2_SHINKI_EMU_STATIC)
+    target_compile_definitions(shinki_emu_kirikiroid2_web PRIVATE SHINKI_EMU_STATIC_CORE=1)
+    target_sources(shinki_emu_kirikiroid2_web PRIVATE AndroidHost.cpp)
+endif()
 target_compile_options(shinki_emu_kirikiroid2_web PRIVATE
     "$<TARGET_PROPERTY:krkr2,COMPILE_OPTIONS>")
 target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE
@@ -29,13 +37,24 @@ endif()
 if(ANDROID)
     target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE EGL GLESv2)
 endif()
+if(IOS OR KRKR2_SHINKI_EMU_STATIC)
+    # The unbuilt target exposes the real transitive static link plan on both
+    # mobile platforms; no second native executable or runtime is produced.
+    add_library(shinki_krkr_link_plan SHARED EXCLUDE_FROM_ALL NativeOwner.cpp NativeSession.cpp NativeInput.cpp)
+    target_link_libraries(shinki_krkr_link_plan PRIVATE
+        "$<TARGET_PROPERTY:shinki_emu_kirikiroid2_web,LINK_LIBRARIES>")
+    target_link_options(shinki_krkr_link_plan PRIVATE
+        "$<TARGET_PROPERTY:shinki_emu_kirikiroid2_web,LINK_OPTIONS>")
+endif()
 set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
     OUTPUT_NAME "shinki_emu_kirikiroid2_web"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<0:>")
 if(UNIX AND NOT APPLE)
-    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+    target_link_libraries(shinki_emu_kirikiroid2_web PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
 elseif(APPLE)
     set_target_properties(shinki_emu_kirikiroid2_web PROPERTIES
         BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@loader_path")

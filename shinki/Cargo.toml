@@ -7,6 +7,10 @@ license = "MIT OR Apache-2.0"
 publish = false
 build = "build.rs"
 
+[features]
+default = []
+static = []
+
 [lib]
 crate-type = ["rlib"]
 
@@ -15,6 +19,11 @@ shinki-emu-abi = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev =
 
 [build-dependencies]
 shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "bbbe929b82ee125ee0874ff8776718f78e4d1a61" }
+serde_json = "1"
+shlex = "1"
+flate2 = "=1.1.10"
+tar = "0.4.46"
+sha2 = "0.11.1"
 
 [workspace]
 

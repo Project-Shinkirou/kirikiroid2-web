@@ -1,6 +1,6 @@
 # shinki-emu-kirikiroid2-web
 
-ShinkiEMU core library `shinki_emu_kirikiroid2_web.dll` (plugin `kirikiroid2-web`).
+ShinkiEMU native core (plugin `kirikiroid2-web`), exported as a Windows DLL or Linux shared library.
 The module exports the unified C `shinki_emu_query` table.
 `shinki_emu_kirikiroid2_web_query` is its uniquely named linked entry; the Rust
 crate `shinki-emu-kirikiroid2-web` exposes that function as `query` and `QUERY`.
@@ -37,10 +37,11 @@ so the exact inspected build output does not retain absolute vcpkg directories.
 Apple plugin compilation prioritizes the linked LZ4 target's headers over host
 package-manager prefixes; the reference LZ4 1.7.4 compile-time guard stays intact.
 
-iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. The shared build helper combines native archives and publishes prepared port libraries/frameworks to Cargo for the final static link.
+iOS builds retain only the uniquely named query entry and record the actual `native-static` archive and runtime assets. The Manager packages those assets under `cores/kirikiroid2-web/Resources`; the linked native owner resolves that bundle path. Android and iOS share `static_link.rs` and `static_link_plan.rs`: CMake's actual selected archive plan is partially linked into one relocatable object, whose private definitions/references are isolated before the final archive enters Manager. Apple SDK libraries/frameworks remain ordinary imports; unrelated installed libraries do not enter this closure.
 iOS sessions own a real offscreen EAGL/OpenGLES context and complete color/depth/stencil framebuffer on the existing native worker. The view honors the requested multisampling storage and fails on an incomplete framebuffer. It does not include the desktop GLFW view or create a second UIKit window/event owner; the original game texture/readback leases still feed Manager, and teardown releases the worker's GL objects and context.
 Uchardet's Apple pkg-config template names the SDK's libc++ runtime, matching the actual AppleClang build, instead of upstream's hardcoded GNU libstdc++. The corrected private closure propagates through ordinary pkg-config static linking; no runtime alias or skipped native library is introduced.
 Apple targets share the existing POSIX/Foundation/Mach platform provider instead of leaving iOS's filesystem, clock, memory, locale and session-exit symbols undefined. AppKit and desktop directory discovery remain macOS-only; iOS uses its actual sandbox/bundle prefixes and the installed typed modal Host. Directory creation retains `std::filesystem`'s true-on-success result rather than negating it. No iOS desktop-UI substitute or silent modal fallback is installed.
+The SDL2 overlay retains the exact 2.32.10 recipe and original source/license. iOS compilation applies a `ShinkiKrkr` macro prefix to every declared SDL Objective-C class and all of its compiled references, matching the existing Renpy SDL source-level mechanism. Impacto SDL3 keeps its original class names; Android's existing private SDL/Cocos Java names and JNI tables are unchanged.
 
 The Rust adapter uses edition 2024 and requires Rust 1.99 or newer.
 
@@ -52,6 +53,69 @@ On iOS it builds the embedded archive library without the standalone
 `bsdtar`, `bsdcpio`, `bsdcat` and `bsdunzip` command applications. Archive
 readers/writers, compression support and the core's in-process extraction
 remain enabled; desktop command-tool configuration is unchanged.
+
+## Android Manager static embedding
+
+The `static` feature builds the actual VM, Cocos EGL renderer and original
+audio implementation into an archive. CMake's File API supplies the resolved
+transitive archive closure. NDK `ld.lld -r` selects that closure without allowing
+duplicate definitions; `llvm-objcopy` namespaces every defined private symbol
+and its references before the final archive enters the Manager link. SDL,
+Cocos JNI bootstrap, private Lua and FFmpeg cannot interpose on another core.
+Archive selection preserves CMake's whole-archive scopes so static NCB plugin
+registration objects are not discarded just because they have no named caller.
+Only the unique query, resource-root setter and Android host initializer retain
+their public names.
+Android platform and C++/OpenMP runtime imports remain normal shared imports.
+Project archives come from CMake's structured target artifact records; relative
+link paths use the recorded generator's real command directory. Windows
+fragments use the Windows argv parser, not POSIX shell escaping. Native
+pkg-config `-l` dependencies enter the same private archive closure.
+`static_link_plan.rs` consumer regressions compile and partially link real NDK
+archives/callers for paths with spaces/backslashes, Ninja/Makefile directories,
+and missing or undeclared archive rejection.
+
+The Manager stages `Resources` and authentic dependency notices through
+`native-static` build metadata, extracts APK assets into app-private storage,
+then sets the absolute resource directory before registering the query table.
+Standalone shared builds retain the generic dynamic query. Static embedding
+does not enable downloadable Android dynamic-core installation.
+
+Java consumers are staged from the SHA512-verified Cocos 3.17.2 and SDL 2.32.10
+source archives already prepared by vcpkg. Digest bytes are compared to the
+pinned hex checksums without relying on an array formatting trait.
+SDL uses private `org.krkrsd.app`
+classes and Cocos uses `org.krkrc2dx.lib`; equal-width ELF class-name rewriting
+matches the staged Java namespaces. SDL's original native registration table
+runs through a uniquely named explicit initializer, not a second exported
+`JNI_OnLoad`. Cocos helper, bitmap and sensor methods use explicit
+`RegisterNatives` tables with their original signatures.
+
+Manager calls `initialize_android` while attached to its AndroidApp JavaVM,
+before registry initialization or the first native session. Cocos retains the
+application Context/classloader, and owner-thread JNI calls use its original
+attach/TLS-detach path. Java helpers borrow the Manager Activity, receive
+pause/resume, and release Activity/audio/sensor references after native teardown.
+The original Helper `init(Activity)` signature is preserved. A recreated
+NativeActivity rebinds Java services after the previous owner has joined; native
+VM/classloader setup is process-scoped, and initializer local references are
+bounded by a JNI local frame. No Activity local reference is retained by C++.
+The Android Cocos overlay queries JavaVM for the current environment on every
+entry, detaches only Cocos-owned attachments, and replaces classloader/context
+global references without leaking their predecessors. SDL's original setup
+runs once on Android's process-attached UI thread, outside scoped Rust
+attachments; the original native registration tables and helper code remain.
+An embedded exit without an active owner throws instead of falling back to
+process termination.
+`KR2Activity` is a ContextWrapper service, not another Activity entry point.
+Its Android-ID JNI service is named `getAndroidDeviceId` to avoid colliding
+with the SDK's inherited `ContextWrapper.getDeviceId(): int`; standalone
+platform lookup keeps its original name and signature.
+Queued Java callbacks drain on the original core owner; modal requests and
+game exit use the existing embedded host rather than the old Activity/process
+exit path. Standalone-only advertisement dispatch is excluded from embedding;
+the upstream handler itself has no implementation, and no replacement ad
+backend is introduced.
 
 ## Source provenance
 
@@ -157,6 +221,27 @@ explicitly, retaining assembly support instead of relying on NASM 3's
 compatibility with the original FFmpeg 3.3.9 configure probe.
 Apple adapter builds consume the original Cocos/core/plugin closure through
 a CMake interface target; they do not require the standalone app entrypoint.
+Linux Cocos dependency builds use CMake's built-in `FindFontconfig` module.
+The overlay removes Cocos 3.17.2's older pkg-config-only finder so shared
+and static builds receive the `Fontconfig::Fontconfig` imported target.
+The Linux gdiplus text renderer links Pango's Cairo and FreeType modules as
+well as its base library, so its `pango_cairo_*` and `pango_fc_*` imports
+resolve without symbols borrowed from another consumer.
+The Linux Cocos port disables the optional `BUILD_EDITOR_SPINE` module.
+The core/plugins have no Spine calls or registrations, and all 35 Cocos Studio
+UI descriptions and their 35 compiled resources use ordinary UI nodes, PNG
+images and TTF fonts. CocoStudio timelines and the real MotionPlayer/Emote
+implementation remain enabled. The original Cocos source archive and its
+per-file license exceptions are retained; they are not blanket MIT.
+The Linux binary's Cocos notice set excludes the unused Spine module.
+`licenses/LICENSE_spine.txt` remains intact in the full upstream source tar
+as documentation of that uncompiled component, not as a linked-runtime claim.
+
+Linux packaging materializes the pinned Cocos FMOD runtime as `libfmod.so.6`
+beside the core, with `$ORIGIN` runtime lookup. See `licenses/FMOD.txt` for
+the exact binary/archive provenance, original Firelight attribution and
+the project owner's redistribution authorization. FMOD remains a separate
+binary SDK component; the Cocos MIT license does not relabel that binary.
 
 ShinkiEMU's iOS triplets distinguish the Autoconf target system
 (`aarch64-apple-ios` or `x86_64-apple-ios`) from the Darwin build host.
@@ -207,7 +292,7 @@ and the core imports them. libbpg selects the HEVC decoder through the public
 `TVPInitLibAVCodec()` during single-threaded startup so the decoders are
 registered before any BPG image loads. Ship every FFmpeg DLL that
 `dumpbin /dependents shinki_emu_kirikiroid2_web.dll` lists (from the vcpkg
-`installed/x64-windows/bin/` directory) in the core directory.
+`installed-x64-windows/x64-windows/bin/` directory) in the core directory.
 
 From a VS x64 developer shell in the ShinkiEMU checkout, prepare dependencies
 explicitly, then build with Ninja (avoids MSBuild's long-path file-tracking limit):
@@ -225,9 +310,10 @@ disabled; missing dependencies fail with a preparation diagnostic.
 The upstream Python parser/resource generators remain build tools.
 
 For direct Cargo invocation, use a VS x64 developer shell and set `VCPKG_ROOT`,
-`SHINKI_EMU_NATIVE_VCPKG_ROOT` (containing `kirikiroid2-web/installed`),
+`SHINKI_EMU_NATIVE_VCPKG_ROOT` (the directory containing `kirikiroid2-web/installed-<triplet>`),
 `SHINKI_EMU_VCPKG_TRIPLET=x64-windows`, and `BISON_EXECUTABLE`.
-The build script requires matching Windows x64 `HOST` and `TARGET`.
+Windows builds require native x64/MSVC `HOST` and `TARGET`; cross-target Android
+builds require the pinned Android SDK/NDK and their own prepared triplet.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.
 
 Cargo owns the native tree at `OUT_DIR/native`. The target writes
@@ -236,6 +322,13 @@ the test-only static library and a copied `Resources/` into its `shinki/`
 subdirectory. `OUT_DIR/core-build.json` records the real DLL, built resource
 directory and source/vcpkg licenses for xtask. No prebuilt DLL override or
 source-tree resource installation is used.
+
+The Linux entry uses `SHINKI_EMU_VCPKG_TRIPLET=x64-linux-dynamic`, system Bison,
+and CMake >=3.28. It records `libshinki_emu_kirikiroid2_web.so` and the test-only
+`.a` library. UTF-8 validation, module paths and hidden GLFW windows no longer
+depend on Win32; Linux modal requests and exit use the embedded session owner.
+Linux dependency preparation and package/load validation are not complete;
+the ShinkiEMU build inventory therefore retains its Linux block.
 
 The Rust crate links the import library and checks the C query table. Its unit
 tests also link `shinki_emu_kirikiroid2_web_lifecycle_test.lib`, built from
@@ -271,3 +364,12 @@ Earlier development observations and raw diagnostics remain in the source
 project's history. They are not re-run automatically. Original game
 files and existing saves must remain unchanged; user-reported manual
 interruptions are not engine failures or completed routes.
+
+The common desktop/Android branch preserves the accepted Linux, Apple and Android
+histories through real merges. Android's process-lifetime Java host and private
+resource root are selected only for Android static embedding. Apple's existing
+static bundle-relative resource path remains separate; merging these histories
+does not accept or enable a new iOS product.
+The Apple platform uses the shared `Platform.h` embedded-modal helper, identical
+to its former local implementation, so the Android/shared-header merge does not
+introduce a second conflicting definition or remove host modal dispatch.

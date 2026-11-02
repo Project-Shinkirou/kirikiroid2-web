@@ -1,10 +1,34 @@
-//! The original Kirikiroid2 VM, GL renderer and OpenAL scheduler live in the
-//! linked native module. The Manager uses only the shared C query table.
+//! The original Kirikiroid2 VM, Cocos renderer and audio scheduler live in the
+//! linked native module. Static Android builds isolate its private symbol closure.
 use shinki_emu_abi::{CoreApi, Query, Status};
 
 unsafe extern "C" {
     #[link_name = "shinki_emu_kirikiroid2_web_query"]
     pub fn query(version: u32, output: *mut *const CoreApi) -> Status;
+}
+
+#[cfg(feature = "static")]
+unsafe extern "C" {
+    fn shinki_emu_kirikiroid2_web_set_resource_root(path: *const u8, length: usize) -> Status;
+    fn shinki_emu_kirikiroid2_web_android_initialize(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status;
+}
+
+/// Configure the APK resources extracted into the Manager's app-private tree.
+#[cfg(feature = "static")]
+pub fn set_resource_root(path: &str) -> Status {
+    unsafe { shinki_emu_kirikiroid2_web_set_resource_root(path.as_ptr(), path.len()) }
+}
+
+/// Initialize the private Cocos/SDL Java consumers before query registration.
+///
+/// # Safety
+/// `vm` must remain valid for the process lifetime. `activity` is a live local
+/// AndroidApp reference for this call only; native code does not retain it.
+/// The calling thread must be attached to `vm`. The host forwards lifecycle
+/// events and releases Java helper Activity references after native teardown.
+#[cfg(all(feature = "static", target_os = "android"))]
+pub unsafe fn initialize_android(vm: *mut std::ffi::c_void, activity: *mut std::ffi::c_void) -> Status {
+    unsafe { shinki_emu_kirikiroid2_web_android_initialize(vm, activity) }
 }
 
 pub const QUERY: Query = query;
@@ -46,6 +70,7 @@ mod lifecycle {
 
     #[link(name = "shinki_emu_kirikiroid2_web_lifecycle_test", kind = "static")]
     unsafe extern "C" {
+        fn shinki_krkr_text_test_validate(text: *const u8, bytes: usize) -> u32;
         fn shinki_krkr_lifecycle_test_new() -> *mut c_void;
         fn shinki_krkr_lifecycle_test_free(lifecycle: *mut c_void);
         fn shinki_krkr_lifecycle_test_phase(lifecycle: *const c_void) -> u32;
@@ -105,6 +130,23 @@ mod lifecycle {
     fn frame_escapes(thrown: u32, exit_requested: bool) -> bool {
         unsafe { shinki_krkr_lifecycle_test_frame(thrown, exit_requested.into()) != 0 }
     }
+    #[test]
+    fn native_utf8_accepts_scalar_values_and_rejects_invalid_encodings() {
+        for text in ["", "native/path", "日本語", "\u{1f680}", "\u{10ffff}"] {
+            assert_ne!(unsafe { shinki_krkr_text_test_validate(text.as_ptr(), text.len()) }, 0);
+        }
+        for bytes in [
+            &[0xc0, 0xaf][..],
+            &[0xed, 0xa0, 0x80],
+            &[0xf4, 0x90, 0x80, 0x80],
+            &[0xe3, 0x81],
+            &[0x80],
+            &[0xe3, 0x28, 0x82],
+        ] {
+            assert_eq!(unsafe { shinki_krkr_text_test_validate(bytes.as_ptr(), bytes.len()) }, 0);
+        }
+    }
+
 
     #[test]
     fn game_exit_finishes_session_and_close_still_succeeds() {

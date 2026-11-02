@@ -1,8 +1,10 @@
 use shinki_emu_build::{
-    configure_cmake, link_apple_static_core, native_vcpkg_installation,
+    configure_cmake,
     write_core_build_manifest, BuildAsset, CoreBuildManifest,
 };
 use std::{env, fs, path::PathBuf};
+mod static_link;
+mod android_java;
 
 fn build() -> Result<(), Box<dyn std::error::Error>> {
     let target = env::var("TARGET")?;
@@ -15,10 +17,13 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !supported.contains(&target.as_str()) {
         return Err(format!("KiriKiri unsupported TARGET={target}").into());
     }
+    if cfg!(feature = "static") && !target.ends_with("-linux-android") {
+        return Err("the static feature is supported by the Android Manager adapter".into());
+    }
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
     }
-    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir"] {
+    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir", "SHINKI_EMU_NATIVE_VCPKG_ROOT"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
     let adapter = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);
@@ -27,8 +32,10 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         "VCPKG_ROOT is missing; run cargo xtask deps for kirikiroid2-web",
     )?);
     let toolchain = vcpkg.join("scripts/buildsystems/vcpkg.cmake");
-    let installed = native_vcpkg_installation("kirikiroid2-web")?;
     let triplet = env::var("SHINKI_EMU_VCPKG_TRIPLET")?;
+    let installed = PathBuf::from(env::var_os("SHINKI_EMU_NATIVE_VCPKG_ROOT").ok_or(
+        "SHINKI_EMU_NATIVE_VCPKG_ROOT is missing; run cargo xtask deps",
+    )?).join("kirikiroid2-web").join(format!("installed-{triplet}"));
     if !toolchain.is_file() || !installed.join(&triplet).join("lib").is_dir() {
         return Err("KiriKiri requires the prepared vcpkg installation; run cargo xtask deps".into());
     }
@@ -38,13 +45,16 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !bison.is_file() {
         return Err(format!("Bison executable missing: {}; run cargo xtask deps", bison.display()).into());
     }
+    println!("cargo:rerun-if-changed={}", toolchain.display());
+    println!("cargo:rerun-if-changed={}", bison.display());
     let mut definitions = vec![
         ("KRKR2_SHINKI_EMU".into(), "ON".into()),
+        ("KRKR2_SHINKI_EMU_STATIC".into(), if cfg!(feature = "static") { "ON" } else { "OFF" }.into()),
         ("ENABLE_TESTS".into(), "OFF".into()),
         ("BUILD_TOOLS".into(), "OFF".into()),
         ("KRKR2_USE_STUB_SPDLOG".into(), "OFF".into()),
         ("CMAKE_TOOLCHAIN_FILE".into(), toolchain.to_string_lossy().replace('\\', "/")),
-        ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().into_owned()),
+        ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().replace('\\', "/")),
         ("BISON_EXECUTABLE".into(), bison.to_string_lossy().replace('\\', "/")),
     ];
     if let Some(ffmpeg) = env::var_os("SHINKI_EMU_FFMPEG_INSTALLED") {
@@ -67,24 +77,40 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         definitions.push(("ANDROID_PLATFORM".into(), "android-28".into()));
     }
     if target.contains("ios") { definitions.push(("IOS".into(), "ON".into())); }
+    let android_static = cfg!(feature = "static") && target.contains("android");
+    let mobile_static = android_static || target.contains("apple-ios");
+    if mobile_static {
+        let query = PathBuf::from(env::var_os("OUT_DIR").ok_or("missing OUT_DIR")?)
+            .join("native/.cmake/api/v1/query");
+        fs::create_dir_all(&query)?;
+        fs::write(query.join("codemodel-v2"), "")?;
+    }
     let native = configure_cmake(root, &definitions, &["shinki_emu_kirikiroid2_web"])?;
     let directory = native.join("shinki");
     let (library_name, static_link) = if target == "x86_64-pc-windows-msvc" {
         ("shinki_emu_kirikiroid2_web.dll", false)
-    } else if target.contains("ios") {
+    } else if target.contains("ios") || android_static {
         ("libshinki_emu_kirikiroid2_web.a", true)
     } else if target.contains("apple") { ("libshinki_emu_kirikiroid2_web.dylib", false) }
     else { ("libshinki_emu_kirikiroid2_web.so", false) };
     if !directory.join(library_name).is_file() {
         return Err(format!("CMake did not produce {}", directory.join(library_name).display()).into());
     }
-    if target == "x86_64-pc-windows-msvc" && !directory.join("shinki_emu_kirikiroid2_web_lifecycle_test.lib").is_file() {
+    let lifecycle = if target == "x86_64-pc-windows-msvc" {
+        "shinki_emu_kirikiroid2_web_lifecycle_test.lib"
+    } else {
+        "libshinki_emu_kirikiroid2_web_lifecycle_test.a"
+    };
+    if !directory.join(lifecycle).is_file() {
         return Err("CMake did not produce lifecycle test library".into());
     }
-    println!("cargo:rustc-link-search=native={}", directory.display());
-    let library = if static_link && target.contains("apple") {
-        link_apple_static_core("kirikiroid2-web", &native, &[installed.join(&triplet)])?
+    if android_static {
+        android_java::stage(&adapter, &native)?;
+    }
+    let library = if mobile_static {
+        static_link::link(&native, &directory.join(library_name))?
     } else {
+        println!("cargo:rustc-link-search=native={}", directory.display());
         println!("cargo:rustc-link-lib={}={}", if static_link { "static" } else { "dylib" }, "shinki_emu_kirikiroid2_web");
         directory.join(library_name)
     };
@@ -96,11 +122,26 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         source: directory.join("Resources"),
         dest: "Resources".into(),
     });
-    for name in ["LICENSE", "shinki/README.md", "cpp/plugins/layerExImage/LICENSE.TXT", "ui/cocos-studio/DroidSansFallback.LICENSE.txt", "shinki/licenses/libbpg-MIT.txt", "shinki/licenses/minizip-zlib.txt", "shinki/licenses/UnRAR.txt"] {
-        let source = root.join(name);
-        if source.is_file() {
-            manifest.licenses.push(BuildAsset { source, dest: format!("licenses/kirikiroid2-web/{}", PathBuf::from(name).file_name().unwrap().to_string_lossy()) });
-        }
+    if android_static {
+        manifest.licenses.push(BuildAsset {
+            source: directory.join("Resources/android-host/licenses"),
+            dest: "licenses/kirikiroid2-web/android-java".into(),
+        });
+    }
+    for (source, name) in [
+        ("LICENSE", "LICENSE"),
+        ("shinki/README.md", "adapter-README.md"),
+        ("cpp/plugins/layerExImage/LICENSE.TXT", "layerExImage-LICENSE.TXT"),
+        ("ui/cocos-studio/DroidSansFallback.LICENSE.txt", "DroidSansFallback.LICENSE.txt"),
+        ("shinki/licenses/libbpg-MIT.txt", "libbpg-MIT.txt"),
+        ("shinki/licenses/minizip-zlib.txt", "minizip-zlib.txt"),
+        ("shinki/licenses/UnRAR.txt", "UnRAR.txt"),
+        ("shinki/licenses/FMOD.txt", "FMOD.txt"),
+    ] {
+        manifest.licenses.push(BuildAsset {
+            source: root.join(source),
+            dest: format!("licenses/kirikiroid2-web/{name}"),
+        });
     }
     let share = installed.join(&triplet).join("share");
     if share.is_dir() {

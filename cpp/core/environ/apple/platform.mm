@@ -36,23 +36,6 @@
 #include "EmbeddedSession.h"
 #include "Exception.h"
 
-static int TVPRequestEmbeddedModal(const TVPEmbeddedModalHost &host,
-                                   const ttstr &caption, const ttstr &message,
-                                   const std::vector<ttstr> &buttons,
-                                   ttstr *input) {
-    std::vector<std::string> labels;
-    labels.reserve(buttons.size());
-    for(const auto &button : buttons)
-        labels.push_back(button.AsStdString());
-    std::string text = input ? input->AsStdString() : std::string{};
-    const int result = host.request(host.context, caption.AsStdString(),
-                                    message.AsStdString(), labels,
-                                    input ? &text : nullptr);
-    if(result >= 0 && input)
-        *input = ttstr(text);
-    return result;
-}
-
 //bool initWindow(cocos2d::GLView* glView) {
 //
 //    auto director = cocos2d::Director::getInstance();
