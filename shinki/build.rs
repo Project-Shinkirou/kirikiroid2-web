@@ -1,5 +1,5 @@
 use shinki_emu_build::{
-    configure_cmake, link_apple_static_core,
+    android_ndk, configure_cmake, inputs, link_apple_static_core, vcpkg,
     write_core_build_manifest, BuildAsset, CoreBuildManifest,
 };
 use std::{env, fs, path::PathBuf};
@@ -23,28 +23,15 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if target == "x86_64-pc-windows-msvc" && host != target {
         return Err(format!("KiriKiri Windows build requires native HOST={target}; HOST={host}").into());
     }
-    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir", "SHINKI_EMU_NATIVE_VCPKG_ROOT"] {
+    for name in ["PATH", "NUM_JOBS", "VCToolsInstallDir", "WindowsSdkDir"] {
         println!("cargo:rerun-if-env-changed={name}");
     }
     let adapter = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);
     let root = adapter.parent().ok_or("adapter has no parent")?;
-    let vcpkg = PathBuf::from(env::var_os("VCPKG_ROOT").ok_or(
-        "VCPKG_ROOT is missing; run cargo xtask deps for kirikiroid2-web",
-    )?);
-    let toolchain = vcpkg.join("scripts/buildsystems/vcpkg.cmake");
-    let triplet = env::var("SHINKI_EMU_VCPKG_TRIPLET")?;
-    let installed = PathBuf::from(env::var_os("SHINKI_EMU_NATIVE_VCPKG_ROOT").ok_or(
-        "SHINKI_EMU_NATIVE_VCPKG_ROOT is missing; run cargo xtask deps",
-    )?).join("kirikiroid2-web").join(format!("installed-{triplet}"));
-    if !toolchain.is_file() || !installed.join(&triplet).join("lib").is_dir() {
-        return Err("KiriKiri requires the prepared vcpkg installation; run cargo xtask deps".into());
-    }
-    let bison = PathBuf::from(env::var_os("BISON_EXECUTABLE").ok_or(
-        "BISON_EXECUTABLE is missing; run cargo xtask deps for kirikiroid2-web",
-    )?);
-    if !bison.is_file() {
-        return Err(format!("Bison executable missing: {}; run cargo xtask deps", bison.display()).into());
-    }
+    let installation = vcpkg::install_core(root, "kirikiroid2-web")?;
+    let toolchain = installation.root.join("scripts/buildsystems/vcpkg.cmake");
+    let installed = installation.install_root.join("installed");
+    let bison = inputs::bison()?;
     println!("cargo:rerun-if-changed={}", toolchain.display());
     println!("cargo:rerun-if-changed={}", bison.display());
     let mut definitions = vec![
@@ -57,8 +44,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         ("VCPKG_INSTALLED_DIR".into(), installed.to_string_lossy().replace('\\', "/")),
         ("BISON_EXECUTABLE".into(), bison.to_string_lossy().replace('\\', "/")),
     ];
-    if let Some(ffmpeg) = env::var_os("SHINKI_EMU_FFMPEG_INSTALLED") {
-        let ffmpeg = PathBuf::from(ffmpeg);
+    definitions.push(("VCPKG_TARGET_TRIPLET".into(), installation.triplet));
+    if cfg!(feature = "static") && target.contains("android") {
+        let ffmpeg = vcpkg::install_shared("ffmpeg")?.prefix;
         definitions.push(("CMAKE_PREFIX_PATH".into(), ffmpeg.to_string_lossy().replace('\\', "/")));
         definitions.push(("FFMPEG_DIR".into(), ffmpeg.join("lib/cmake/ffmpeg").to_string_lossy().replace('\\', "/")));
     }
@@ -75,6 +63,8 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         definitions.push(("ANDROID".into(), "ON".into()));
         definitions.push(("ANDROID_ABI".into(), abi.into()));
         definitions.push(("ANDROID_PLATFORM".into(), "android-28".into()));
+        let toolchain = android_ndk()?.join("build/cmake/android.toolchain.cmake");
+        definitions.push(("VCPKG_CHAINLOAD_TOOLCHAIN_FILE".into(), toolchain.to_string_lossy().replace('\\', "/")));
     }
     if target.contains("ios") { definitions.push(("IOS".into(), "ON".into())); }
     let android_static = cfg!(feature = "static") && target.contains("android");
@@ -109,7 +99,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     let library = if android_static {
         android_static::link(&native, &directory.join(library_name))?
     } else if static_link && target.contains("apple") {
-        link_apple_static_core("kirikiroid2-web", &native, &[installed.join(&triplet)])?
+        link_apple_static_core("kirikiroid2-web", &native, &[installation.prefix.clone()])?
     } else {
         println!("cargo:rustc-link-search=native={}", directory.display());
         println!("cargo:rustc-link-lib={}={}", if static_link { "static" } else { "dylib" }, "shinki_emu_kirikiroid2_web");
