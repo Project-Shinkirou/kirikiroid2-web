@@ -33,7 +33,6 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     let installed = installation.install_root.join("installed");
     let bison = inputs::bison()?;
     println!("cargo:rerun-if-changed={}", toolchain.display());
-    println!("cargo:rerun-if-changed={}", bison.display());
     let mut definitions = vec![
         ("KRKR2_SHINKI_EMU".into(), "ON".into()),
         ("KRKR2_SHINKI_EMU_STATIC".into(), if cfg!(feature = "static") { "ON" } else { "OFF" }.into()),
@@ -134,7 +133,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
             dest: format!("licenses/kirikiroid2-web/{name}"),
         });
     }
-    let share = installed.join(&triplet).join("share");
+    let share = installation.prefix.join("share");
     if share.is_dir() {
         let mut ports = fs::read_dir(&share)?.collect::<Result<Vec<_>, _>>()?;
         ports.sort_by_key(|port| port.file_name());

@@ -18,12 +18,11 @@ crate-type = ["rlib"]
 shinki-emu-abi = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "9cd899babbb54cbc84c3e9fbddfe192c2f9200c8" }
 
 [build-dependencies]
-shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "bbbe929b82ee125ee0874ff8776718f78e4d1a61" }
+shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "828768456fc67c26e72f0874814d4e908994d88b" }
 serde_json = "1"
 shlex = "1"
 flate2 = "=1.1.10"
 tar = "0.4.46"
-sha2 = "0.11.1"
 
 [workspace]
 

@@ -1,7 +1,7 @@
 //! Stage the Java consumers of the pinned static SDL/Cocos archives.
 use flate2::read::GzDecoder;
-use sha2::{Digest, Sha512};
-use std::{env, error::Error, fs, io::Read, path::{Path, PathBuf}};
+use shinki_emu_build::inputs::download_sha512;
+use std::{error::Error, fs, io::{BufReader, Read}, path::{Path, PathBuf}};
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
 
 fn replace(source: &mut String, before: &str, after: &str) -> Result<()> {
@@ -74,26 +74,17 @@ fn sdl_contract(source: &str, contracts: &mut Vec<serde_json::Value>) -> Result<
 }
 
 pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
-    let downloads = PathBuf::from(env::var_os("SHINKI_EMU_NATIVE_DOWNLOADS").ok_or("native downloads missing")?);
-    let cache = downloads.parent().ok_or("native work root missing")?.join("vcpkg-downloads");
     let output = native.join("shinki/Resources/android-host");
     let sources = output.join("java");
     fs::create_dir_all(&sources)?;
     let mut contracts = Vec::new();
     let cocos_classes = ["Cocos2dxHelper.java", "Cocos2dxBitmap.java", "Cocos2dxTypefaces.java", "Cocos2dxMusic.java", "Cocos2dxSound.java", "Cocos2dxAccelerometer.java", "Cocos2dxRenderer.java", "Cocos2dxReflectionHelper.java"];
-    for (file, hash, prefix, cocos) in [
-        ("cocos2d-x-3.17.2.tar.gz", "b2d5ac968231892c39a953d82e9791c2182b0dbceca5791647bb2daad258134725386c9eb1d32de148465d88d2d932b29f241af0f5f4b4e6d9d80d9684f531fa", "cocos2d-x-cocos2d-x-3.17.2/cocos/platform/android/java/", true),
-        ("libsdl-org-SDL-release-2.32.10.tar.gz", "d5622d6bb7266f7942a7b8ad43e8a22524893bf0c2ea1af91204838d9b78d32768843f6faa248757427b8404b8c6443776d4afa6b672cd8571a4e0c03a829383", "SDL-release-2.32.10/android-project/app/src/main/java/", false),
+    for (url, file, hash, prefix, cocos) in [
+        ("https://github.com/cocos2d/cocos2d-x/archive/refs/tags/cocos2d-x-3.17.2.tar.gz", "cocos2d-x-3.17.2.tar.gz", "b2d5ac968231892c39a953d82e9791c2182b0dbceca5791647bb2daad258134725386c9eb1d32de148465d88d2d932b29f241af0f5f4b4e6d9d80d9684f531fa", "cocos2d-x-cocos2d-x-3.17.2/cocos/platform/android/java/", true),
+        ("https://github.com/libsdl-org/SDL/archive/release-2.32.10.tar.gz", "libsdl-org-SDL-release-2.32.10.tar.gz", "d5622d6bb7266f7942a7b8ad43e8a22524893bf0c2ea1af91204838d9b78d32768843f6faa248757427b8404b8c6443776d4afa6b672cd8571a4e0c03a829383", "SDL-release-2.32.10/android-project/app/src/main/java/", false),
     ] {
-        let archive = cache.join(file);
-        println!("cargo:rerun-if-changed={}", archive.display());
-        let bytes = fs::read(&archive)?;
-        let digest = Sha512::digest(&bytes);
-        let hex = b"0123456789abcdef";
-        if !digest.iter().flat_map(|&byte| [hex[usize::from(byte >> 4)], hex[usize::from(byte & 15)]]).eq(hash.bytes()) {
-            return Err(format!("pinned Java archive SHA512 mismatch: {file}").into());
-        }
-        let mut archive = tar::Archive::new(GzDecoder::new(bytes.as_slice()));
+        let archive = download_sha512(url, hash, file)?;
+        let mut archive = tar::Archive::new(GzDecoder::new(BufReader::new(fs::File::open(archive)?)));
         for entry in archive.entries()? {
             let mut entry = entry?;
             if !entry.header().entry_type().is_file() { continue; }
