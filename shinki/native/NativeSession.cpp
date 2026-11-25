@@ -8,7 +8,7 @@
 #include "NativeSession.h"
 #include "HostModal.h"
 #include "NativeLifecycle.h"
-#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+#ifdef __ANDROID__
 #include "AndroidHost.h"
 #endif
 #include "environ/cocos2d/AppDelegate.h"
@@ -193,7 +193,7 @@ void NativeSession::caption(void *context, iWindowLayer *, const std::string &te
 void NativeSession::tick(float seconds) {
     if(callbacks_.is_cancelled(callbacks_.context))
         throw NativeCancelled();
-#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+#ifdef __ANDROID__
     android::drain();
 #endif
     auto director = cocos2d::Director::getInstance();
@@ -201,7 +201,7 @@ void NativeSession::tick(float seconds) {
 }
 void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
     check_thread();
-#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+#ifdef __ANDROID__
     android::owner_started();
     android_owner_ = true;
 #endif
@@ -362,7 +362,7 @@ void NativeSession::shutdown() {
     TJS::TJSExecutionCancelled = nullptr;
     TJS::TJSExecutionCancellationContext = nullptr;
     if(installed_) { TVPRemoveEmbeddedSessionHost(&host_); installed_ = false; }
-#if defined(__ANDROID__) && defined(SHINKI_EMU_STATIC_CORE)
+#ifdef __ANDROID__
     if(android_owner_) { cleanup([] { android::owner_stopped(); }); android_owner_ = false; }
 #endif
     spdlog::info("SHINKI_EMU_KRKR_NATIVE_CLOSED cleanup_failed={}", bool(failure));

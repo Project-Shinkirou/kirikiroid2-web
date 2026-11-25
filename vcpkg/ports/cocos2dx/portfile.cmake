@@ -34,6 +34,7 @@ vcpkg_extract_source_archive(
         patch/fix-bullet-spell.patch
         patch/fix-chipmunk.patch
         patch/fix-android-jni-lifetime.patch
+        patch/remove-oppo-game-tuning.patch
 )
 
 # Cocos' pkg-config-only finder predates the imported Fontconfig target.

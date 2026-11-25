@@ -1,0 +1,97 @@
+diff --git a/cocos/2d/CCScene.cpp b/cocos/2d/CCScene.cpp
+--- a/cocos/2d/CCScene.cpp
++++ b/cocos/2d/CCScene.cpp
+@@ -35,5 +35,4 @@
+ #include "renderer/CCRenderer.h"
+ #include "renderer/CCFrameBuffer.h"
+-#include "platform/CCDataManager.h"
+ 
+ #if CC_USE_PHYSICS
+@@ -78,17 +77,4 @@
+     
+     Camera::_visitingCamera = nullptr;
+-
+-#if CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID
+-    DataManager::onSceneLoaderBegin();
+-#endif
+-}
+-
+-void Scene::onEnter()
+-{
+-    Node::onEnter();
+-    
+-#if CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID
+-    DataManager::onSceneLoaderEnd();
+-#endif
+ }
+ 
+diff --git a/cocos/2d/CCScene.h b/cocos/2d/CCScene.h
+--- a/cocos/2d/CCScene.h
++++ b/cocos/2d/CCScene.h
+@@ -127,13 +127,4 @@
+     virtual void removeAllChildren() override;
+     
+-    /**
+-     * Event callback that is invoked every time when Node enters the 'stage'.
+-     * If the Node enters the 'stage' with a transition, this event is called when the transition starts.
+-     * During onEnter you can't access a "sister/brother" node.
+-     * If you override onEnter, you shall call its parent's one, e.g., Node::onEnter().
+-     * @lua NA
+-     */
+-    virtual void onEnter() override;
+-    
+ CC_CONSTRUCTOR_ACCESS:
+     Scene();
+diff --git a/cocos/renderer/CCGLProgramCache.cpp b/cocos/renderer/CCGLProgramCache.cpp
+--- a/cocos/renderer/CCGLProgramCache.cpp
++++ b/cocos/renderer/CCGLProgramCache.cpp
+@@ -36,5 +36,4 @@
+ #include "base/CCDirector.h"
+ #include "base/CCEventDispatcher.h"
+-#include "platform/CCDataManager.h"
+ 
+ NS_CC_BEGIN
+@@ -129,7 +128,4 @@
+ bool GLProgramCache::init()
+ {
+-#if CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID
+-    DataManager::onShaderLoaderBegin();
+-#endif
+     loadDefaultGLPrograms();
+     
+@@ -137,7 +133,4 @@
+         reloadDefaultGLProgramsRelativeToLights();
+     });
+-#if CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID
+-    DataManager::onShaderLoaderEnd();
+-#endif
+     Director::getInstance()->getEventDispatcher()->addEventListenerWithFixedPriority(listener, -1);
+     
+diff --git a/cocos/platform/android/javaactivity-android.cpp b/cocos/platform/android/javaactivity-android.cpp
+--- a/cocos/platform/android/javaactivity-android.cpp
++++ b/cocos/platform/android/javaactivity-android.cpp
+@@ -38,7 +38,5 @@
+ #include "2d/CCDrawingPrimitives.h"
+ #include "platform/android/jni/JniHelper.h"
+-#include "platform/CCDataManager.h"
+ #include "network/CCDownloader-android.h"
+-#include <unistd.h>
+ #include <android/log.h>
+ #include <android/api-level.h>
+@@ -89,7 +87,4 @@
+ JNIEXPORT void Java_org_cocos2dx_lib_Cocos2dxRenderer_nativeInit(JNIEnv*  env, jobject thiz, jint w, jint h)
+ {
+-    DataManager::setProcessID(getpid());
+-    DataManager::setFrameSize(w, h);
+-
+     auto director = cocos2d::Director::getInstance();
+     auto glview = director->getOpenGLView();
+diff --git a/cocos/platform/CMakeLists.txt b/cocos/platform/CMakeLists.txt
+--- a/cocos/platform/CMakeLists.txt
++++ b/cocos/platform/CMakeLists.txt
+@@ -158,5 +158,4 @@
+ set(COCOS_PLATFORM_SRC
+     ${COCOS_PLATFORM_SPECIFIC_SRC}
+-    platform/CCDataManager.cpp
+     platform/CCSAXParser.cpp
+     platform/CCThread.cpp

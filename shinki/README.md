@@ -1,9 +1,9 @@
 # shinki-emu-kirikiroid2-web
 
-ShinkiEMU native core (plugin `kirikiroid2-web`), exported as a Windows DLL or Linux shared library.
-The module exports the unified C `shinki_emu_query` table.
-`shinki_emu_kirikiroid2_web_query` is its uniquely named linked entry; the Rust
-crate `shinki-emu-kirikiroid2-web` exposes that function as `query` and `QUERY`.
+ShinkiEMU native core (plugin `kirikiroid2-web`). Shared builds export the C
+ABI v3 entry `shinki_emu_query`. Android shared builds export only that entry.
+Desktop and static builds keep `shinki_emu_kirikiroid2_web_query` as their
+uniquely named linked entry. The Rust adapter exposes `query` and `QUERY`.
 The native owner schedules the original VM and Cocos/OpenGL renderer.
 Manager presents CPU leases and supplies optional typed window/modal services.
 There is no child process, socket protocol, Host PCM requirement, library reload,
@@ -50,7 +50,7 @@ On iOS it builds the embedded archive library without the standalone
 readers/writers, compression support and the core's in-process extraction
 remain enabled; desktop command-tool configuration is unchanged.
 
-## Android Manager static embedding
+## Android native core and APK host
 
 The `static` feature builds the actual VM, Cocos EGL renderer and original
 audio implementation into an archive. CMake's File API supplies the resolved
@@ -71,15 +71,20 @@ pkg-config `-l` dependencies enter the same private archive closure.
 archives/callers for paths with spaces/backslashes, Ninja/Makefile directories,
 and missing or undeclared archive rejection.
 
-The Manager stages `Resources` and authentic dependency notices through
-`native-static` build metadata, extracts APK assets into app-private storage,
-then sets the absolute resource directory before registering the query table.
-Standalone shared builds retain the generic dynamic query. Static embedding
-does not enable downloadable Android dynamic-core installation.
+For static embedding the Manager stages `Resources` via `native-static` build
+metadata, extracts the APK assets into app-private storage, then sets the
+absolute resource directory before registering the query table.
 
-Java consumers are staged from the SHA512-verified Cocos 3.17.2 and SDL 2.32.10
-source archives already prepared by vcpkg. Digest bytes are compared to the
-pinned hex checksums without relying on an array formatting trait.
+The standalone core uses the same archive closure and writes its shared ELF to
+`native_library` in `core-build.json`. The native package contains the ELF,
+sibling `Resources`, runtime DSOs and notices. The Java/AIDL sources and
+`com.android.vending.expansion.zipfile.jar` are build sidecars at
+`native_library.parent()/android-host`; Gradle compiles them into the APK.
+The manifest tracks their notices separately under
+`licenses/kirikiroid2-web/android-java`.
+
+Cargo stages the Java inputs from the SHA-512-verified Cocos 3.17.2 and SDL
+2.32.10 source archives.
 SDL uses private `org.krkrsd.app`
 classes and Cocos uses `org.krkrc2dx.lib`; equal-width ELF class-name rewriting
 matches the staged Java namespaces. SDL's original native registration table
@@ -87,15 +92,18 @@ runs through a uniquely named explicit initializer, not a second exported
 `JNI_OnLoad`. Cocos helper, bitmap and sensor methods use explicit
 `RegisterNatives` tables with their original signatures.
 
-Manager calls `initialize_android` while attached to its AndroidApp JavaVM,
-before registry initialization or the first native session. Cocos retains the
-application Context/classloader, and owner-thread JNI calls use its original
-attach/TLS-detach path. Java helpers borrow the Manager Activity, receive
-pause/resume, and release Activity/audio/sensor references after native teardown.
-The original Helper `init(Activity)` signature is preserved. A recreated
-NativeActivity rebinds Java services after the previous owner has joined; native
-VM/classloader setup is process-scoped, and initializer local references are
-bounded by a JNI local frame. No Activity local reference is retained by C++.
+The static host calls `initialize_android` before registry initialization. The
+dynamic core binds the process Java VM and Application global through ABI v3
+`AndroidContextV1` on explicit activation. It registers its private natives
+and initializes the Java services only when opening a game. Discovery and
+installation do not load the module. The APK uses either the static core or
+the dynamic core for these Java classes.
+
+The Java host keeps the Activity route for Cocos UI and IME. On Activity
+destruction it cancels pending dynamic initialization before NativeActivity
+joins the native owner, then releases the Java services after the join.
+Cocos classloader setup is process-scoped; the C++ bridge keeps no Activity
+reference and uses a JNI local frame for startup calls.
 The Android Cocos overlay queries JavaVM for the current environment on every
 entry, detaches only Cocos-owned attachments, and replaces classloader/context
 global references without leaking their predecessors. SDL's original setup
@@ -258,9 +266,20 @@ The Android owner creates an OpenGL ES 2 EGL pbuffer on its native thread,
 uses the original Cocos renderer and reads back the game canvas for Manager.
 It owns and destroys its EGL context/surface without terminating the process's
 shared display. CoreApi supplies input; no GLFW window or Java event loop is used.
-Its Cocos Android support archive is linked normally, preserving the required
-support objects without forcing the separate Java-Activity bootstrap and its
-competing `JNI_OnLoad` into the CoreApi-owned module. SDL keeps its own loader.
+The archive closure includes Cocos JNI support without the standalone Activity
+loader. SDL's renamed loader runs on the APK UI thread. FFmpeg stays inside
+the private archive closure; Android's C++ and OpenMP runtime DSOs resolve
+through normal Bionic lookup (`$ORIGIN`).
+
+The engine reads resources beside the installed ELF. Cocos scratch data uses
+the Application cache, separate from the package and saved games. The embedded
+Android core detects each BOM-less TJS file independently (CP932, UTF-8, then
+GBK) unless the game explicitly selects an encoding. The Cocos overlay leaves
+out standalone Oppo game tuning instrumentation.
+
+The fork's Web CI does not build or validate the Android `.so` or the APK Java
+host. Those checks belong to the ShinkiEMU product's Android build/package
+rows; device lifecycle and game behavior require separate runtime validation.
 
 FFmpeg is dynamically linked (LGPL-2.1): the `x64-windows` triplet builds
 `avcodec-57.dll`, `avformat-57.dll`, `avutil-55.dll` and the other FFmpeg DLLs,
@@ -271,26 +290,22 @@ registered before any BPG image loads. Ship every FFmpeg DLL that
 `dumpbin /dependents shinki_emu_kirikiroid2_web.dll` lists (from the vcpkg
 `installed-x64-windows/x64-windows/bin/` directory) in the core directory.
 
-From a VS x64 developer shell in the ShinkiEMU checkout, prepare dependencies
-explicitly, then build with Ninja (avoids MSBuild's long-path file-tracking limit):
+From a VS x64 developer shell in the ShinkiEMU checkout, build with Ninja
+(avoids MSBuild's long-path file-tracking limit):
 
 ```powershell
 $env:CMAKE_GENERATOR = "Ninja"
-cargo xtask deps --target x86_64-pc-windows-msvc --core kirikiroid2-web
 cargo xtask build --target x86_64-pc-windows-msvc --core kirikiroid2-web --release
 ```
 
-The adapter's Cargo entry runs the root CMake project with `KRKR2_SHINKI_EMU=ON`.
-It builds the original shared core and the lifecycle test library with at most
-four Cargo jobs (`CARGO_BUILD_JOBS=4`). CMake runs offline, with vcpkg installation
-disabled; missing dependencies fail with a preparation diagnostic.
+The adapter's Cargo entry prepares the pinned vcpkg installation and Bison,
+then runs the root CMake project with `KRKR2_SHINKI_EMU=ON`. CMake uses the
+Cargo-prepared inputs with vcpkg manifest installation and network fetches
+disabled.
 The upstream Python parser/resource generators remain build tools.
 
-For direct Cargo invocation, use a VS x64 developer shell and set `VCPKG_ROOT`,
-`SHINKI_EMU_NATIVE_VCPKG_ROOT` (the directory containing `kirikiroid2-web/installed-<triplet>`),
-`SHINKI_EMU_VCPKG_TRIPLET=x64-windows`, and `BISON_EXECUTABLE`.
-Windows builds require native x64/MSVC `HOST` and `TARGET`; cross-target Android
-builds require the pinned Android SDK/NDK and their own prepared triplet.
+Windows builds require native x64/MSVC `HOST` and `TARGET`. Android cross builds
+use the selected SDK/NDK and the Cargo-owned Android vcpkg triplet.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.
 
 Cargo owns the native tree at `OUT_DIR/native`. The target writes
@@ -343,10 +358,8 @@ files and existing saves must remain unchanged; user-reported manual
 interruptions are not engine failures or completed routes.
 
 The common desktop/Android branch preserves the accepted Linux, Apple and Android
-histories through real merges. Android's process-lifetime Java host and private
-resource root are selected only for Android static embedding. Apple's existing
-static bundle-relative resource path remains separate; merging these histories
-does not accept or enable a new iOS product.
+histories through real merges. Apple's static bundle-relative resources remain
+separate from Android's static APK resources and dynamic packages.
 The Apple platform uses the shared `Platform.h` embedded-modal helper, identical
 to its former local implementation, so the Android/shared-header merge does not
 introduce a second conflicting definition or remove host modal dispatch.

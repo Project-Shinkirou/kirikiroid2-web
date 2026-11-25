@@ -12,6 +12,7 @@
 #include <stddef.h>
 
 #define ShinkiEmuABI_VERSION 3
+#define ShinkiEmuANDROID_CONTEXT_VERSION 1
 
 #define ShinkiEmuMAX_CONFIG_FIELDS 128
 
@@ -702,6 +703,19 @@ typedef struct ShinkiEmuCoreApi {
  * module table. It performs no IO, starts no workers and installs no logger.
  */
 typedef ShinkiEmuStatus (*ShinkiEmuQuery)(uint32_t, const struct ShinkiEmuCoreApi**);
+
+/**
+ * Optional Android `CoreApi.extension` table for a dynamically loaded core.
+ * Negotiate `shinki.emu.android_context`, version 1; the header uses ABI v3.
+ * On explicit activation, before `CoreApi.initialize`, call `initialize` with
+ * a `JavaVM*` and a JNI global reference to the application context. The host
+ * owns both for the life of the process. Never pass an Activity or `JNIEnv*`.
+ * Repeating the call with the same pointers must succeed without reinitializing.
+ */
+typedef struct ShinkiEmuAndroidContextV1 {
+  struct ShinkiEmuHeader header;
+  ShinkiEmuStatus (*initialize)(void*, void*, struct ShinkiEmuError*);
+} ShinkiEmuAndroidContextV1;
 
 /**
  * Optional ownership extension for real cross-session module resources, e.g.

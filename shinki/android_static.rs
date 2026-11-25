@@ -1,11 +1,11 @@
-//! Resolve CMake's real link plan, then namespace the entire native closure.
-//! Undefined Android/C++ runtime imports stay untouched; every defined private
-//! symbol (and its internal references) receives the same core-specific name.
+//! Resolve CMake's Android archive closure and retain private SDL/Cocos JNI.
+//! Static consumers namespace private symbols; shared cores hide them in ELF.
 use serde_json::Value;
-use std::{collections::{BTreeMap, BTreeSet}, env, error::Error, fs, path::{Path, PathBuf}, process::Command};
+use std::{collections::{BTreeMap, BTreeSet}, error::Error, fs, path::{Path, PathBuf}, process::Command};
 
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
-const EXPORTS: [&str; 3] = ["shinki_emu_kirikiroid2_web_query", "shinki_emu_kirikiroid2_web_set_resource_root", "shinki_emu_kirikiroid2_web_android_initialize"];
+const STATIC_EXPORTS: [&str; 3] = ["shinki_emu_kirikiroid2_web_query", "shinki_emu_kirikiroid2_web_set_resource_root", "shinki_emu_kirikiroid2_web_android_initialize"];
+const DYNAMIC_EXPORT: &str = "shinki_emu_query";
 
 fn capture(command: &mut Command) -> Result<String> {
     let output = command.output()?;
@@ -19,7 +19,8 @@ fn json(path: &Path) -> Result<Value> { Ok(serde_json::from_slice(&fs::read(path
 #[path = "android_link_plan.rs"]
 mod link_plan;
 enum LinkInput { Archive(usize), Whole(bool) }
-pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
+pub fn link(native: &Path, adapter: &Path, ndk: &Path, target: &str, static_build: bool) -> Result<PathBuf> {
+    let exports = if static_build { STATIC_EXPORTS.as_slice() } else { std::slice::from_ref(&DYNAMIC_EXPORT) };
     let reply = native.join(".cmake/api/v1/reply");
     let mut indices = fs::read_dir(&reply)?.collect::<std::io::Result<Vec<_>>>()?;
     indices.retain(|entry| entry.file_name().to_string_lossy().starts_with("index-"));
@@ -91,7 +92,9 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
         } else if token.ends_with(".so") {
             let name = Path::new(&token).file_name().and_then(|s| s.to_str()).ok_or("runtime filename")?;
             if !matches!(name, "libc++_shared.so" | "libomp.so") { return Err(format!("non-static Krkr dependency: {token}").into()); }
-            println!("cargo:rustc-link-search=native={}", Path::new(&token).parent().unwrap().display());
+            if static_build {
+                println!("cargo:rustc-link-search=native={}", Path::new(&token).parent().unwrap().display());
+            }
             system.insert(name.trim_start_matches("lib").trim_end_matches(".so").to_owned());
             continue;
         } else { continue; };
@@ -106,7 +109,6 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
         };
         inputs.push(LinkInput::Archive(index));
     }
-    let ndk = PathBuf::from(env::var_os("ANDROID_NDK_HOME").ok_or("ANDROID_NDK_HOME missing")?);
     let host = if cfg!(windows) { "windows-x86_64" } else if cfg!(target_os = "macos") { "darwin-x86_64" } else { "linux-x86_64" };
     let tools = ndk.join("toolchains/llvm/prebuilt").join(host).join("bin");
     let executable = |name: &str| tools.join(format!("{name}{}", if cfg!(windows) { ".exe" } else { "" }));
@@ -130,7 +132,7 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
         });
     }
     args.push("--end-group".into());
-    for export in EXPORTS { args.push(format!("--undefined={export}")); }
+    for export in exports { args.push(format!("--undefined={export}")); }
     args.extend(["-o".into(), format!("\"{}\"", object.to_string_lossy().replace('\\', "/"))]);
     fs::write(&response, args.join("\n"))?;
     capture(Command::new(executable("ld.lld")).arg(format!("@{}", response.display())))?;
@@ -152,11 +154,15 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
         }
     }
     fs::write(&object, bytes)?;
+    system.extend(["c++_shared", "android", "log", "dl", "m", "EGL", "GLESv2", "GLESv1_CM", "OpenSLES"].map(str::to_owned));
+    if !static_build {
+        return link_shared(&executable("clang"), target, &object, system);
+    }
     let symbols = capture(Command::new(executable("llvm-nm")).args(["--defined-only", "--extern-only", "--format=posix"]).arg(&object))?;
     let mut renames = BTreeSet::new();
     for line in symbols.lines() {
         let symbol = line.split_whitespace().next().ok_or("invalid nm symbol")?;
-        if !EXPORTS.contains(&symbol) { renames.insert(format!("{symbol} shinki_krkr_{symbol}")); }
+        if !exports.contains(&symbol) { renames.insert(format!("{symbol} shinki_krkr_{symbol}")); }
     }
     let map = native.join("shinki/krkr-symbols.map");
     fs::write(&map, renames.into_iter().collect::<Vec<_>>().join("\n") + "\n")?;
@@ -164,8 +170,8 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     capture(Command::new(executable("llvm-objcopy")).arg(format!("--redefine-syms={}", map.display())).arg(&object).arg(&isolated))?;
     let isolated_symbols = capture(Command::new(executable("llvm-nm")).args(["--defined-only", "--extern-only", "--format=posix"]).arg(&isolated))?;
     let names: BTreeSet<_> = isolated_symbols.lines().filter_map(|line| line.split_whitespace().next()).collect();
-    if EXPORTS.iter().any(|export| !names.contains(export))
-        || names.iter().any(|name| !EXPORTS.contains(name) && !name.starts_with("shinki_krkr_")) {
+    if exports.iter().any(|export| !names.contains(export))
+        || names.iter().any(|name| !exports.contains(name) && !name.starts_with("shinki_krkr_")) {
         return Err("Krkr static closure leaked an unisolated symbol or lost its query/resource entry".into());
     }
     let archive = native.join("shinki/libshinki_krkr_closure.a");
@@ -174,7 +180,38 @@ pub fn link(native: &Path, adapter: &Path) -> Result<PathBuf> {
     fs::write(native.join("shinki/krkr-static-inputs.json"), serde_json::to_vec_pretty(&archives)?)?;
     println!("cargo:rustc-link-search=native={}", archive.parent().unwrap().display());
     println!("cargo:rustc-link-lib=static=shinki_krkr_closure");
-    system.extend(["c++_shared", "android", "log", "dl", "m", "EGL", "GLESv2", "GLESv1_CM", "OpenSLES"].map(str::to_owned));
     for name in system { println!("cargo:rustc-link-lib={name}"); }
     Ok(archive)
+}
+
+fn link_shared(clang: &Path, target: &str, object: &Path, system: BTreeSet<String>) -> Result<PathBuf> {
+    let directory = object.parent().ok_or("native output directory missing")?;
+    let name = "shinki_emu_kirikiroid2_web";
+    let soname = format!("lib{name}.so");
+    let library = directory.join(&soname);
+    let version_script = directory.join("krkr-exports.map");
+    fs::write(&version_script, format!("{{ global: {DYNAMIC_EXPORT}; local: *; }};\n"))?;
+    let target_arg = format!("--target={target}28");
+    let mut command = Command::new(clang);
+    command.args([target_arg.as_str(), "-shared", "-Wl,--no-undefined,--no-undefined-version,--gc-sections",
+        "-Wl,-z,max-page-size=16384", "-Wl,-z,common-page-size=16384", "-Wl,--enable-new-dtags,-rpath,$ORIGIN"])
+        .arg(format!("-Wl,-soname,{soname}"))
+        .arg("-Xlinker").arg("--version-script").arg("-Xlinker").arg(&version_script)
+        .arg(object);
+    for dependency in system {
+        if dependency == "omp" {
+            let resolved = capture(Command::new(clang).args([target_arg.as_str(), "--print-file-name=libomp.so"]))?;
+            let runtime = Path::new(resolved.trim());
+            if !runtime.is_absolute() || !runtime.is_file() {
+                return Err("NDK Clang did not resolve libomp.so".into());
+            }
+            command.arg(runtime);
+        } else {
+            command.arg(format!("-l{dependency}"));
+        }
+    }
+    capture(command.arg("-o").arg(&library))?;
+    println!("cargo:rustc-link-search=native={}", directory.display());
+    println!("cargo:rustc-link-lib=dylib={name}");
+    Ok(library)
 }

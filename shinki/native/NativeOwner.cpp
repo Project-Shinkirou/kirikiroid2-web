@@ -11,7 +11,7 @@
 #include "NativeSession.h"
 #include "NativeLifecycle.h"
 #include "NativeLog.h"
-#if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
+#ifdef __ANDROID__
 #include "AndroidHost.h"
 #endif
 #include <spdlog/spdlog.h>
@@ -427,6 +427,16 @@ ShinkiEmuStatus open(const ShinkiEmuOpenRequest *r, ShinkiEmuOpenResult *out, Sh
 #endif
 #if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
             const auto temporary_root = std::filesystem::u8path(static_resources).parent_path();
+#elif defined(__ANDROID__)
+            require(module_path.is_absolute() && std::filesystem::is_directory(std::filesystem::u8path(s->resources)),
+                "KRKR_RESOURCE_ROOT_INVALID", ShinkiEmuINVALID_STATE);
+            std::filesystem::path temporary_root;
+            try { temporary_root = shinki::krkr::android::activate(); }
+            catch(...) {
+                if(s->stopping()) throw NativeCancelled();
+                throw;
+            }
+            if(s->stopping()) throw NativeCancelled();
 #else
             const auto temporary_root = std::filesystem::temp_directory_path();
 #endif
@@ -558,7 +568,28 @@ ShinkiEmuStatus close(ShinkiEmuSession handle, ShinkiEmuError *e) noexcept {
         }
     });
 }
-ShinkiEmuStatus extension(ShinkiEmuBytes, uint32_t, const void **out) noexcept { if(out) *out = nullptr; return out ? ShinkiEmuUNSUPPORTED : ShinkiEmuINVALID_ARGUMENT; }
+#if defined(__ANDROID__) && !defined(SHINKI_EMU_STATIC_CORE)
+ShinkiEmuStatus android_context(void *vm, void *application, ShinkiEmuError *e) noexcept {
+    return boundary(e, [&] {
+        require(shinki::krkr::android::set_context(vm, application),
+            "KRKR_ANDROID_CONTEXT_INVALID", ShinkiEmuINVALID_STATE);
+    });
+}
+#endif
+ShinkiEmuStatus extension(ShinkiEmuBytes name, uint32_t version, const void **out) noexcept {
+    if(!out) return ShinkiEmuINVALID_ARGUMENT;
+    *out = nullptr;
+#if defined(__ANDROID__) && !defined(SHINKI_EMU_STATIC_CORE)
+    constexpr std::string_view id = "shinki.emu.android_context";
+    if(version == ShinkiEmuANDROID_CONTEXT_VERSION && name.len == id.size() && name.data &&
+        std::memcmp(name.data, id.data(), id.size()) == 0) {
+        static const ShinkiEmuAndroidContextV1 context{{sizeof(context), ShinkiEmuABI_VERSION}, android_context};
+        *out = &context;
+        return ShinkiEmuOK;
+    }
+#endif
+    return ShinkiEmuUNSUPPORTED;
+}
 const ShinkiEmuCoreApi api{{sizeof(ShinkiEmuCoreApi), ShinkiEmuABI_VERSION}, initialize, describe, probe, open, input, control, state, frame, cancel, close, extension};
 }
 #if defined(SHINKI_EMU_STATIC_CORE) && defined(__ANDROID__)
@@ -578,12 +609,16 @@ extern "C" ShinkiEmuStatus shinki_emu_kirikiroid2_web_set_resource_root(const ui
 #else
 #define SHINKI_EMU_EXPORT extern "C" __attribute__((visibility("default")))
 #endif
+#if defined(__ANDROID__) && !defined(SHINKI_EMU_STATIC_CORE)
+SHINKI_EMU_EXPORT ShinkiEmuStatus shinki_emu_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
+#else
 SHINKI_EMU_EXPORT ShinkiEmuStatus shinki_emu_kirikiroid2_web_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
+#endif
     if(!out) return ShinkiEmuINVALID_ARGUMENT;
     *out = version == ShinkiEmuABI_VERSION ? &api : nullptr;
     return *out ? ShinkiEmuOK : ShinkiEmuUNSUPPORTED;
 }
-#if !defined(SHINKI_EMU_STATIC_CORE)
+#if !defined(SHINKI_EMU_STATIC_CORE) && !defined(__ANDROID__)
 SHINKI_EMU_EXPORT ShinkiEmuStatus shinki_emu_query(uint32_t version, const ShinkiEmuCoreApi **out) noexcept {
     return shinki_emu_kirikiroid2_web_query(version, out);
 }

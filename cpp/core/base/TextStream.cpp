@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <zlib.h>
 #include <optional>
+#include <utility>
 
 #include "TextStream.h"
 
@@ -12,89 +13,10 @@
 #include "tjsError.h"
 #include "CharacterSet.h"
 #include "BinaryStream.h"
-
-extern "C" int gbk_mbtowc(unsigned short *wc, const unsigned char *s);
-extern "C" int sjis_mbtowc(unsigned short *wc, const unsigned char *s);
-
-using tTVPMbToWc = int (*)(unsigned short *, const unsigned char *);
+#include "NarrowText.h"
 
 static ttstr G_DefaultReadEncoding(TJS_W("UTF-8"));
 static tTVPMbToWc G_DefaultReadConverter = nullptr;
-
-// libkrkr2.so sub_8F516C @ 0x8F516C.
-static int TVPUtf8MbToWc(unsigned short *wc, const unsigned char *s) {
-    const unsigned int first = s[0];
-    if(first < 0x80) {
-        *wc = static_cast<unsigned short>(first);
-        return 1;
-    }
-    if(first < 0xC2)
-        return -1;
-    if(first <= 0xDF) {
-        const unsigned int second = s[1] ^ 0x80;
-        if(second > 0x3F)
-            return -1;
-        *wc = static_cast<unsigned short>(((first & 0x1F) << 6) | second);
-        return 2;
-    }
-    if(first > 0xEF || static_cast<signed char>(s[1]) > -65 ||
-       static_cast<signed char>(s[2]) > -65)
-        return -1;
-
-    const unsigned int second = s[1];
-    if(first == 0xE0 && second < 0xA0)
-        return -1;
-
-    *wc = static_cast<unsigned short>(((second ^ 0x80) << 6) |
-                                     (first << 12) | (s[2] ^ 0x80));
-    return 3;
-}
-
-static bool TVPDecodeNarrowText(const std::vector<std::uint8_t> &raw,
-                                tTVPMbToWc converter,
-                                std::u16string &decoded) {
-    std::vector<std::uint8_t> terminated(raw);
-    terminated.push_back(0);
-
-    decoded.clear();
-    decoded.reserve(raw.size());
-    const unsigned char *current = terminated.data();
-    const unsigned char *end = current + raw.size();
-    while(current < end && *current) {
-        unsigned short wc;
-        const int consumed = converter(&wc, current);
-        if(consumed < 1 || current + consumed > end) {
-            decoded.clear();
-            return false;
-        }
-        decoded.push_back(static_cast<char16_t>(wc));
-        current += consumed;
-    }
-    return true;
-}
-
-// libkrkr2.so sub_8F5244 @ 0x8F5244. An explicitly selected converter is
-// authoritative. Without one, the original fallback order is SJIS, UTF-8, GBK.
-static void TVPDecodeNarrowText(const std::vector<std::uint8_t> &raw,
-                                std::u16string &decoded) {
-    if(G_DefaultReadConverter) {
-        if(TVPDecodeNarrowText(raw, G_DefaultReadConverter, decoded))
-            return;
-        TVPThrowExceptionMessage(TJSNarrowToWideConversionError);
-    }
-
-    if(TVPDecodeNarrowText(raw, sjis_mbtowc, decoded))
-        return;
-    if(TVPDecodeNarrowText(raw, TVPUtf8MbToWc, decoded)) {
-        G_DefaultReadConverter = TVPUtf8MbToWc;
-        return;
-    }
-    if(TVPDecodeNarrowText(raw, gbk_mbtowc, decoded)) {
-        G_DefaultReadConverter = gbk_mbtowc;
-        return;
-    }
-    TVPThrowExceptionMessage(TJSNarrowToWideConversionError);
-}
 
 std::string checkTextEncoding(const void *buf, size_t size,
                               std::uint8_t &bomSize) {
@@ -145,7 +67,9 @@ public:
 
         auto totalSize = _stream->GetSize();
         auto size = static_cast<size_t>(totalSize - ofs);
-        std::vector<std::uint8_t> raw(size);
+        std::vector<std::uint8_t> raw;
+        raw.reserve(size + 1); // room for the narrow decoder's lookahead byte
+        raw.resize(size);
         _stream->ReadBuffer(raw.data(), size);
 
         // ---------- 检查是否加密/压缩 ----------
@@ -210,7 +134,15 @@ public:
         // libkrkr2.so sub_8F60B0 @ 0x8F60B0: after encrypted/BOM formats,
         // ordinary text is decoded only through sub_8F5244's converter chain.
         if(encoding.empty()) {
-            TVPDecodeNarrowText(raw, _buffer);
+#ifdef KRKR2_SHINKI_EMU
+            // The Manager can encounter mixed BOM-less encodings in one game.
+            constexpr bool rememberDetection = false;
+#else
+            constexpr bool rememberDetection = true;
+#endif
+            if(!TVPDecodeNarrowText(std::move(raw), G_DefaultReadConverter,
+                                    rememberDetection, _buffer))
+                TVPThrowExceptionMessage(TJSNarrowToWideConversionError);
             return;
         }
 

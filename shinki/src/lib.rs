@@ -3,7 +3,8 @@
 use shinki_emu_abi::{CoreApi, Query, Status};
 
 unsafe extern "C" {
-    #[link_name = "shinki_emu_kirikiroid2_web_query"]
+    #[cfg_attr(all(target_os = "android", not(feature = "static")), link_name = "shinki_emu_query")]
+    #[cfg_attr(not(all(target_os = "android", not(feature = "static"))), link_name = "shinki_emu_kirikiroid2_web_query")]
     pub fn query(version: u32, output: *mut *const CoreApi) -> Status;
 }
 

@@ -7,12 +7,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.krkrc2dx.lib.Cocos2dxHelper;
 import org.krkrsd.app.SDL;
 
 /** Services for the native core; the Manager remains the only entry Activity. */
 public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
     private static WeakReference<Activity> activity = new WeakReference<>(null);
+    private static WeakReference<Activity> preparedActivity = new WeakReference<>(null);
+    private static CompletableFuture<Void> activation;
     private static final ConcurrentLinkedQueue<Runnable> pending = new ConcurrentLinkedQueue<>();
     private static volatile boolean initialized;
     private static volatile boolean ownerActive;
@@ -23,6 +28,51 @@ public final class KrkrHost implements Cocos2dxHelper.Cocos2dxHelperListener {
     private static native void nativeRequestExit();
     public static void requestExit() {
         if (!queue(KrkrHost::nativeRequestExit)) throw new RejectedExecutionException("KRKR_OWNER_NOT_RUNNING");
+    }
+
+    public static synchronized void prepareActivity(Activity host) {
+        preparedActivity = new WeakReference<>(host);
+    }
+
+    // Unblock an explicit open before NativeActivity joins its owner thread.
+    public static synchronized void cancelActivation(Activity host) {
+        if (preparedActivity.get() != host) return;
+        preparedActivity.clear();
+        if (activation != null) activation.cancel(false);
+        activation = null;
+    }
+
+    public static void initializeForActivation() throws InterruptedException, ExecutionException, TimeoutException {
+        final Activity host;
+        final CompletableFuture<Void> ready;
+        synchronized (KrkrHost.class) {
+            host = preparedActivity.get();
+            if (host == null) throw new IllegalStateException("KRKR_ACTIVITY_UNAVAILABLE");
+            if (initialized && activity.get() == host) return;
+            if (activation != null) throw new IllegalStateException("KRKR_ACTIVATION_PENDING");
+            ready = new CompletableFuture<>();
+            activation = ready;
+        }
+        try {
+            host.runOnUiThread(() -> activateOnUiThread(host, ready));
+            ready.get(5, TimeUnit.SECONDS);
+        } finally {
+            synchronized (KrkrHost.class) {
+                if (activation == ready) activation = null;
+            }
+        }
+    }
+
+    private static synchronized void activateOnUiThread(Activity host, CompletableFuture<Void> ready) {
+        if (activation != ready) return;
+        try {
+            if (preparedActivity.get() != host || host.isFinishing() || host.isDestroyed())
+                throw new IllegalStateException("KRKR_ACTIVITY_UNAVAILABLE");
+            initializeServices(host);
+            ready.complete(null);
+        } catch (RuntimeException | Error failure) {
+            ready.completeExceptionally(failure);
+        }
     }
 
     // Called by the registered native initializer, before any query registration.

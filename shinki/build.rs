@@ -9,6 +9,8 @@ mod android_java;
 fn build() -> Result<(), Box<dyn std::error::Error>> {
     let target = env::var("TARGET")?;
     let host = env::var("HOST")?;
+    let android = target.ends_with("-linux-android");
+    let android_static = android && cfg!(feature = "static");
     let supported = [
         "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin",
         "aarch64-apple-darwin", "aarch64-apple-ios", "aarch64-apple-ios-sim",
@@ -17,7 +19,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !supported.contains(&target.as_str()) {
         return Err(format!("KiriKiri unsupported TARGET={target}").into());
     }
-    if cfg!(feature = "static") && !target.ends_with("-linux-android") {
+    if cfg!(feature = "static") && !android {
         return Err("the static feature is supported by the Android Manager adapter".into());
     }
     if target == "x86_64-pc-windows-msvc" && host != target {
@@ -44,15 +46,16 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         ("BISON_EXECUTABLE".into(), bison.to_string_lossy().replace('\\', "/")),
     ];
     definitions.push(("VCPKG_TARGET_TRIPLET".into(), installation.triplet));
-    if cfg!(feature = "static") && target.contains("android") {
+    if android_static {
         let ffmpeg = vcpkg::install_shared("ffmpeg")?.prefix;
         definitions.push(("CMAKE_PREFIX_PATH".into(), ffmpeg.to_string_lossy().replace('\\', "/")));
         definitions.push(("FFMPEG_DIR".into(), ffmpeg.join("lib/cmake/ffmpeg").to_string_lossy().replace('\\', "/")));
     }
     if target == "x86_64-pc-windows-msvc" { definitions.push(("WINDOWS".into(), "ON".into())); }
-    if target.contains("linux") && !target.contains("android") { definitions.push(("LINUX".into(), "ON".into())); }
+    if target.contains("linux") && !android { definitions.push(("LINUX".into(), "ON".into())); }
     if target.contains("apple") { definitions.push(("APPLE".into(), "ON".into())); }
-    if target.contains("android") {
+    let ndk = if android {
+        let ndk = android_ndk()?;
         let arch = env::var("CARGO_CFG_TARGET_ARCH")?;
         let abi = match arch.as_str() {
             "aarch64" => "arm64-v8a",
@@ -62,12 +65,12 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         definitions.push(("ANDROID".into(), "ON".into()));
         definitions.push(("ANDROID_ABI".into(), abi.into()));
         definitions.push(("ANDROID_PLATFORM".into(), "android-28".into()));
-        let toolchain = android_ndk()?.join("build/cmake/android.toolchain.cmake");
+        let toolchain = ndk.join("build/cmake/android.toolchain.cmake");
         definitions.push(("VCPKG_CHAINLOAD_TOOLCHAIN_FILE".into(), toolchain.to_string_lossy().replace('\\', "/")));
-    }
+        Some(ndk)
+    } else { None };
     if target.contains("ios") { definitions.push(("IOS".into(), "ON".into())); }
-    let android_static = cfg!(feature = "static") && target.contains("android");
-    if android_static {
+    if android {
         let query = PathBuf::from(env::var_os("OUT_DIR").ok_or("missing OUT_DIR")?)
             .join("native/.cmake/api/v1/query");
         fs::create_dir_all(&query)?;
@@ -77,8 +80,8 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     let directory = native.join("shinki");
     let (library_name, static_link) = if target == "x86_64-pc-windows-msvc" {
         ("shinki_emu_kirikiroid2_web.dll", false)
-    } else if target.contains("ios") || android_static {
-        ("libshinki_emu_kirikiroid2_web.a", true)
+    } else if target.contains("ios") || android {
+        ("libshinki_emu_kirikiroid2_web.a", !android || android_static)
     } else if target.contains("apple") { ("libshinki_emu_kirikiroid2_web.dylib", false) }
     else { ("libshinki_emu_kirikiroid2_web.so", false) };
     if !directory.join(library_name).is_file() {
@@ -92,11 +95,13 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     if !directory.join(lifecycle).is_file() {
         return Err("CMake did not produce lifecycle test library".into());
     }
-    if android_static {
-        android_java::stage(&adapter, &native)?;
-    }
-    let library = if android_static {
-        android_static::link(&native, &directory.join(library_name))?
+    let android_java = if android {
+        let output = if android_static { directory.join("Resources/android-host") } else { directory.join("android-host") };
+        android_java::stage(&adapter, &output)?;
+        Some(output)
+    } else { None };
+    let library = if let Some(ndk) = ndk {
+        android_static::link(&native, &directory.join(library_name), &ndk, &target, android_static)?
     } else if static_link && target.contains("apple") {
         link_apple_static_core("kirikiroid2-web", &native, &[installation.prefix.clone()])?
     } else {
@@ -112,9 +117,9 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
         source: directory.join("Resources"),
         dest: "Resources".into(),
     });
-    if android_static {
+    if let Some(java) = android_java {
         manifest.licenses.push(BuildAsset {
-            source: directory.join("Resources/android-host/licenses"),
+            source: java.join("licenses"),
             dest: "licenses/kirikiroid2-web/android-java".into(),
         });
     }

@@ -73,8 +73,7 @@ fn sdl_contract(source: &str, contracts: &mut Vec<serde_json::Value>) -> Result<
     Ok(())
 }
 
-pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
-    let output = native.join("shinki/Resources/android-host");
+pub fn stage(adapter: &Path, output: &Path) -> Result<()> {
     let sources = output.join("java");
     fs::create_dir_all(&sources)?;
     let mut contracts = Vec::new();
@@ -162,6 +161,7 @@ pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
         ("org/shinkirou/krkr/KrkrHost", "ownerStarted", "()V", false),
         ("org/shinkirou/krkr/KrkrHost", "drain", "()V", false),
         ("org/shinkirou/krkr/KrkrHost", "ownerStopped", "()V", false),
+        ("org/shinkirou/krkr/KrkrHost", "initializeForActivation", "()V", false),
         ("org/krkrc2dx/lib/Cocos2dxHelper", "init", "(Landroid/app/Activity;)V", false),
         ("org/krkrc2dx/lib/Cocos2dxHelper", "getAssetsPath", "()Ljava/lang/String;", false),
         ("org/krkrc2dx/lib/Cocos2dxHelper", "getDPI", "()I", false),
@@ -191,5 +191,5 @@ pub fn stage(adapter: &Path, native: &Path) -> Result<PathBuf> {
         }));
     }
     fs::write(output.join("jni-contract.json"), serde_json::to_vec_pretty(&contracts)?)?;
-    Ok(output)
+    Ok(())
 }
