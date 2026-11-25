@@ -20,7 +20,11 @@ if(ANDROID)
         set(ENV{ANDROID_NDK_HOME} "${ANDROID_NDK}")
     endif()
     add_compile_options(-Wno-inconsistent-missing-override)
-    include(cmake/vcpkg_android.cmake)
+    # Cargo already supplies both pinned toolchains. Only standalone builds
+    # without that pair use the legacy environment-based discovery.
+    if(NOT CMAKE_TOOLCHAIN_FILE OR NOT VCPKG_CHAINLOAD_TOOLCHAIN_FILE)
+        include(cmake/vcpkg_android.cmake)
+    endif()
 elseif(VCPKG_TARGET_TRIPLET STREQUAL "wasm32-emscripten" OR EMSCRIPTEN)
     set(WEB ON)
     set(VCPKG_TARGET_TRIPLET "wasm32-emscripten")

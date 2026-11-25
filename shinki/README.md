@@ -305,7 +305,9 @@ disabled.
 The upstream Python parser/resource generators remain build tools.
 
 Windows builds require native x64/MSVC `HOST` and `TARGET`. Android cross builds
-use the selected SDK/NDK and the Cargo-owned Android vcpkg triplet.
+use the selected SDK/NDK and the Cargo-owned Android vcpkg triplet. The Android
+adapter supplies both CMake toolchain paths, so it does not require
+`VCPKG_ROOT` in the caller's environment.
 `KRKR2_SHINKI_EMU` defaults to `OFF`; Web and other platform builds are unaffected.
 
 Cargo owns the native tree at `OUT_DIR/native`. The target writes
