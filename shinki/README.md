@@ -83,8 +83,18 @@ sibling `Resources`, runtime DSOs and notices. The Java/AIDL sources and
 The manifest tracks their notices separately under
 `licenses/kirikiroid2-web/android-java`.
 
-Cargo stages the Java inputs from the SHA-512-verified Cocos 3.17.2 and SDL
-2.32.10 source archives.
+The `shinki-kirikiroid2-web-android-host` library stages these inputs from the
+same SHA-512-verified Cocos 3.17.2 and SDL 2.32.10 archives. From the fork root,
+stage them without an Android SDK, NDK, vcpkg, or core build:
+
+```sh
+cargo run --locked --manifest-path shinki/android-host/Cargo.toml --example stage -- <output-dir>
+```
+
+The staging command and native adapter share the same pinned download cache.
+Run the standalone staging regression with
+`cargo test --locked --manifest-path shinki/android-host/Cargo.toml --test stage`.
+
 SDL uses private `org.krkrsd.app`
 classes and Cocos uses `org.krkrc2dx.lib`; equal-width ELF class-name rewriting
 matches the staged Java namespaces. SDL's original native registration table

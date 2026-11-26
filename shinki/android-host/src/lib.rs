@@ -1,8 +1,11 @@
 //! Stage the Java consumers of the pinned static SDL/Cocos archives.
 use flate2::read::GzDecoder;
 use shinki_emu_build::inputs::download_sha512;
-use std::{error::Error, fs, io::{BufReader, Read}, path::{Path, PathBuf}};
+use std::{error::Error, fs, io::{BufReader, Read}, path::Path};
 type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
+
+/// Core ID for registering this host input provider.
+pub const PLUGIN_ID: &str = "kirikiroid2-web";
 
 fn replace(source: &mut String, before: &str, after: &str) -> Result<()> {
     if source.matches(before).count() != 1 { return Err(format!("pinned Java source drift: {before}").into()); }
@@ -73,7 +76,11 @@ fn sdl_contract(source: &str, contracts: &mut Vec<serde_json::Value>) -> Result<
     Ok(())
 }
 
-pub fn stage(adapter: &Path, output: &Path) -> Result<()> {
+/// Stage Java/AIDL sources, the ZIP helper JAR, notices, and the JNI contract.
+pub fn stage(output: &Path) -> Result<()> {
+    let adapter = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Android host package is nested in the adapter");
     let sources = output.join("java");
     fs::create_dir_all(&sources)?;
     let mut contracts = Vec::new();

@@ -4,7 +4,6 @@ use shinki_emu_build::{
 };
 use std::{env, fs, path::PathBuf};
 mod android_static;
-mod android_java;
 
 fn build() -> Result<(), Box<dyn std::error::Error>> {
     let target = env::var("TARGET")?;
@@ -97,7 +96,10 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     }
     let android_java = if android {
         let output = if android_static { directory.join("Resources/android-host") } else { directory.join("android-host") };
-        android_java::stage(&adapter, &output)?;
+        for source in ["android/KrkrHost.java", "android/KR2Activity.java"] {
+            println!("cargo:rerun-if-changed={}", adapter.join(source).display());
+        }
+        shinki_kirikiroid2_web_android_host::stage(&output)?;
         Some(output)
     } else { None };
     let library = if let Some(ndk) = ndk {
