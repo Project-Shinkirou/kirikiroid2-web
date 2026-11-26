@@ -7,6 +7,9 @@ type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
 /// Core ID for registering this host input provider.
 pub const PLUGIN_ID: &str = "kirikiroid2-web";
 
+/// Java class that connects this core to the platform Activity lifecycle.
+pub const ACTIVITY_ADAPTER_CLASS: &str = "org.shinkirou.krkr.AndroidActivityAdapter";
+
 fn replace(source: &mut String, before: &str, after: &str) -> Result<()> {
     if source.matches(before).count() != 1 { return Err(format!("pinned Java source drift: {before}").into()); }
     *source = source.replacen(before, after, 1);
@@ -133,7 +136,14 @@ pub fn stage(output: &Path) -> Result<()> {
             fs::write(destination, text)?;
         }
     }
-    for (source, destination) in [("android/KrkrHost.java", "org/shinkirou/krkr/KrkrHost.java"), ("android/KR2Activity.java", "org/tvp/kirikiri2/KR2Activity.java")] {
+    for (source, destination) in [
+        ("android/KrkrHost.java", "org/shinkirou/krkr/KrkrHost.java"),
+        ("android/KR2Activity.java", "org/tvp/kirikiri2/KR2Activity.java"),
+        (
+            "android/AndroidActivityAdapter.java",
+            "org/shinkirou/krkr/AndroidActivityAdapter.java",
+        ),
+    ] {
         let destination = sources.join(destination);
         fs::create_dir_all(destination.parent().unwrap())?;
         fs::copy(adapter.join(source), destination)?;

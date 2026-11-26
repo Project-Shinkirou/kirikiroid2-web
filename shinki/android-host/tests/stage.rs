@@ -1,3 +1,4 @@
+use shinki_kirikiroid2_web_android_host::ACTIVITY_ADAPTER_CLASS;
 use std::fs;
 
 #[test]
@@ -5,6 +6,12 @@ fn stages_android_host_without_the_native_adapter() {
     let output = tempfile::tempdir().unwrap();
     shinki_kirikiroid2_web_android_host::stage(output.path()).unwrap();
     let output = output.path();
+
+    let adapter = format!("java/{}.java", ACTIVITY_ADAPTER_CLASS.replace('.', "/"));
+    assert_eq!(
+        fs::read(output.join(adapter)).unwrap(),
+        include_bytes!("../../android/AndroidActivityAdapter.java"),
+    );
 
     let activity = fs::read_to_string(output.join("java/org/krkrsd/app/SDLActivity.java")).unwrap();
     assert!(activity.contains("package org.krkrsd.app;"));

@@ -96,9 +96,7 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     }
     let android_java = if android {
         let output = if android_static { directory.join("Resources/android-host") } else { directory.join("android-host") };
-        for source in ["android/KrkrHost.java", "android/KR2Activity.java"] {
-            println!("cargo:rerun-if-changed={}", adapter.join(source).display());
-        }
+        println!("cargo:rerun-if-changed={}", adapter.join("android").display());
         shinki_kirikiroid2_web_android_host::stage(&output)?;
         Some(output)
     } else { None };

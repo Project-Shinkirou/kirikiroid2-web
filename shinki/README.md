@@ -95,6 +95,10 @@ The staging command and native adapter share the same pinned download cache.
 Run the standalone staging regression with
 `cargo test --locked --manifest-path shinki/android-host/Cargo.toml --test stage`.
 
+The Java inputs include the core's implementation of the platform
+`AndroidActivityAdapter` interface. APK assembly can register it using the
+host library's `ACTIVITY_ADAPTER_CLASS`.
+
 SDL uses private `org.krkrsd.app`
 classes and Cocos uses `org.krkrc2dx.lib`; equal-width ELF class-name rewriting
 matches the staged Java namespaces. SDL's original native registration table
