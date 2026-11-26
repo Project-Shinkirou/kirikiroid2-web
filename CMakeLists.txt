@@ -34,8 +34,8 @@ elseif(VCPKG_TARGET_TRIPLET STREQUAL "wasm32-emscripten" OR EMSCRIPTEN)
     endif()
     file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" KRKR2_VCPKG_ROOT)
     set(CMAKE_TOOLCHAIN_FILE "${KRKR2_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-else()
-    # Windows VCPKG_ROOT values use backslashes, which CMake reads as escapes.
+elseif(NOT CMAKE_TOOLCHAIN_FILE)
+    # Standalone desktop fallback; Cargo already supplies the pinned toolchain.
     file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" KRKR2_VCPKG_ROOT)
     set(CMAKE_TOOLCHAIN_FILE "${KRKR2_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
 endif()
