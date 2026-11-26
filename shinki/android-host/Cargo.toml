@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 flate2 = "=1.1.10"
 serde_json = "1"
-shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "828768456fc67c26e72f0874814d4e908994d88b" }
+shinki-emu-build = { git = "https://github.com/Project-Shinkirou/ShinkiEMU", rev = "d69096c0e192a4908074c256009f28a15cd5f9fe" }
 tar = "0.4.46"
 
 [dev-dependencies]

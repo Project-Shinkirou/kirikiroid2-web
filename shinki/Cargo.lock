@@ -1163,7 +1163,7 @@ source = "git+https://github.com/Project-Shinkirou/ShinkiEMU?rev=9cd899babbb54cb
 [[package]]
 name = "shinki-emu-build"
 version = "0.1.0"
-source = "git+https://github.com/Project-Shinkirou/ShinkiEMU?rev=828768456fc67c26e72f0874814d4e908994d88b#828768456fc67c26e72f0874814d4e908994d88b"
+source = "git+https://github.com/Project-Shinkirou/ShinkiEMU?rev=d69096c0e192a4908074c256009f28a15cd5f9fe#d69096c0e192a4908074c256009f28a15cd5f9fe"
 dependencies = [
  "anyhow",
  "cc",

@@ -29,7 +29,12 @@ fn build() -> Result<(), Box<dyn std::error::Error>> {
     }
     let adapter = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);
     let root = adapter.parent().ok_or("adapter has no parent")?;
-    let installation = vcpkg::install_core(root, "kirikiroid2-web")?;
+    let overlays: &[_] = if target.ends_with("-apple-darwin") {
+        &[vcpkg::PortOverlay::Workspace("apple-ports")]
+    } else {
+        &[]
+    };
+    let installation = vcpkg::install_core_with_overlays(root, "kirikiroid2-web", overlays)?;
     let toolchain = installation.root.join("scripts/buildsystems/vcpkg.cmake");
     let installed = installation.install_root.join("installed");
     let bison = inputs::bison()?;
