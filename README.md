@@ -172,6 +172,9 @@ Renderer/uniform lookup caches belong to the owner thread, not to a process-wide
 GL context. Do not reuse a closed owner thread for a different context.
 
 `TVPBeginSystemSession` resets shutdown state before application startup.
+Embedded boot also restores text reads to automatic detection and resets the
+script-visible label to `UTF-8`. Script overrides remain in effect for the
+rest of that session.
 `TVPSystemUninit` closes event publication, drains callbacks, invalidates registered
 window owners (including script/native reference cycles), unregisters loaded
 plugins and destroys the VM. Cancelled script finalizers still invalidate their

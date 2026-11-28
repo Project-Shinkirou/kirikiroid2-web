@@ -15,7 +15,8 @@
 #include "BinaryStream.h"
 #include "NarrowText.h"
 
-static ttstr G_DefaultReadEncoding(TJS_W("UTF-8"));
+static const ttstr G_InitialReadEncoding(TJS_W("UTF-8"));
+static ttstr G_DefaultReadEncoding(G_InitialReadEncoding);
 static tTVPMbToWc G_DefaultReadConverter = nullptr;
 
 std::string checkTextEncoding(const void *buf, size_t size,
@@ -426,6 +427,11 @@ iTJSTextWriteStream *TVPCreateTextStreamForWrite(const ttstr &name,
 }
 
 //---------------------------------------------------------------------------
+void TVPResetDefaultReadEncoding() {
+    G_DefaultReadEncoding = G_InitialReadEncoding;
+    G_DefaultReadConverter = nullptr; // The default label does not force UTF-8.
+}
+
 void TVPSetDefaultReadEncoding(const ttstr &encoding) {
     // libkrkr2.so sub_8F6AFC @ 0x8F6AFC.
     G_DefaultReadEncoding = encoding;

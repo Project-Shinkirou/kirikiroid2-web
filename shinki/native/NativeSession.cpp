@@ -219,7 +219,7 @@ void NativeSession::boot(const ShinkiKrkrBootOptions &options) {
         throw std::runtime_error("SHINKI_EMU_KRKR_NATIVE_SESSION_IN_USE");
     installed_ = true;
     modal_ = std::make_unique<HostModal>(callbacks_.context, callbacks_.modal);
-    TVPBeginSystemSession();
+    TVPBeginEmbeddedSystemSession();
     TJS::TJSExecutionCancellationContext = this;
     TJS::TJSExecutionCancelled = [](void *context) {
         const auto self = static_cast<NativeSession *>(context);

@@ -17,6 +17,7 @@
 #include "tjsUtils.h"
 #include "SysInitIntf.h"
 #include "ScriptMgnIntf.h"
+#include "TextStream.h"
 #include "tvpgl.h"
 #include <exception>
 #include "ncbind.hpp"
@@ -121,6 +122,11 @@ void TVPBeginSystemSession() {
     // session has joined its producers and released its application.
     TVPSystemUninitCalled = false;
     TJS::TJSBeginBinaryStreamSession();
+}
+
+void TVPBeginEmbeddedSystemSession() {
+    TVPBeginSystemSession();
+    TVPResetDefaultReadEncoding();
 }
 
 //---------------------------------------------------------------------------

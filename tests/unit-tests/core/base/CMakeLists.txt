@@ -11,3 +11,7 @@ target_link_libraries(async-binary-stream
 )
 target_include_directories(async-binary-stream PRIVATE "${TEST_CONFIG_DIR}")
 catch_discover_tests(async-binary-stream)
+
+add_executable(text-stream-session text-stream-session.cpp main.cpp)
+target_link_libraries(text-stream-session PRIVATE Catch2::Catch2 krkr2core)
+catch_discover_tests(text-stream-session)

@@ -25,6 +25,7 @@ extern void TVPSystemInit();
 extern void TVPSystemUninit();
 // Serialized reusable application lifecycle; no host/framework dependency.
 extern void TVPBeginSystemSession();
+extern void TVPBeginEmbeddedSystemSession();
 extern void TVPResetSystemOptions();
 
 //-- implement in each platform

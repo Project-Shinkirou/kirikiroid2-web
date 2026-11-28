@@ -9,6 +9,7 @@ iTJSTextWriteStream *TVPCreateTextStreamForWrite(const ttstr &name,
 std::string checkTextEncoding(const void *buf, size_t size,
                               std::uint8_t &bomSize);
 
+void TVPResetDefaultReadEncoding();
 void TVPSetDefaultReadEncoding(const ttstr &encoding);
 
 const tjs_char *TVPGetDefaultReadEncoding();
